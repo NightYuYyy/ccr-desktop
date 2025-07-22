@@ -427,14 +427,14 @@ const handleServiceMessage = ({ text, type }) => {
         <!-- 基本信息 -->
         <div class="bg-gray-50 rounded-lg p-4 flex-shrink-0">
           <h4 class="font-medium text-gray-900 mb-3">基本信息</h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <span class="text-gray-600">服务名称:</span>
-              <span class="ml-2 font-medium break-all">{{ selectedProvider.name }}</span>
+              <label class="block text-sm font-medium text-gray-700 mb-1">服务名称</label>
+              <el-input v-model="selectedProvider.name" placeholder="请输入服务名称" />
             </div>
             <div>
-              <span class="text-gray-600">API地址:</span>
-              <span class="ml-2 font-mono text-xs break-all">{{ selectedProvider.api_base_url }}</span>
+              <label class="block text-sm font-medium text-gray-700 mb-1">API地址</label>
+              <el-input v-model="selectedProvider.api_base_url" placeholder="请输入API地址" />
             </div>
           </div>
         </div>

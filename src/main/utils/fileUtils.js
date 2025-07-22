@@ -1,5 +1,6 @@
-import { readFile, access, constants } from 'fs/promises'
+import { readFile, writeFile, access, constants, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
+import { dirname } from 'path'
 
 /**
  * 检查文件是否存在
@@ -54,10 +55,10 @@ export async function readJsonFile(filePath) {
 
     // 读取文件内容
     const content = await readFile(filePath, 'utf-8')
-    
+
     // 解析JSON
     const data = JSON.parse(content)
-    
+
     return {
       success: true,
       data
@@ -69,7 +70,7 @@ export async function readJsonFile(filePath) {
         error: `配置文件格式错误，请检查JSON语法: ${error.message}`
       }
     }
-    
+
     return {
       success: false,
       error: `读取配置文件失败: ${error.message}`
@@ -84,4 +85,35 @@ export async function readJsonFile(filePath) {
  */
 export function fileExistsSync(filePath) {
   return existsSync(filePath)
+}
+
+/**
+ * 安全写入JSON文件
+ * @param {string} filePath - JSON文件路径
+ * @param {any} data - 要写入的数据
+ * @returns {Promise<{success: boolean, error?: string}>} 写入结果
+ */
+export async function writeJsonFile(filePath, data) {
+  try {
+    // 确保目录存在
+    const dir = dirname(filePath)
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true })
+    }
+
+    // 将数据转换为格式化的JSON字符串
+    const content = JSON.stringify(data, null, 2)
+
+    // 写入文件
+    await writeFile(filePath, content, 'utf-8')
+
+    return {
+      success: true
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: `写入配置文件失败: ${error.message}`
+    }
+  }
 }

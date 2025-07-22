@@ -7,10 +7,17 @@ import { registerConfigHandlers } from './handlers/index.js'
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    // AURA-X: 优化配置管理面板的默认窗口尺寸
+    width: 1280,        // 增加宽度以支持3列卡片布局
+    height: 860,        // 增加高度以减少滚动需求
+    minWidth: 900,      // 设置最小宽度，确保小屏幕下可用
+    minHeight: 600,     // 设置最小高度
+    center: true,       // 窗口居中显示
     show: false,
     autoHideMenuBar: true,
+    resizable: true,    // 明确设置可调整大小
+    maximizable: true,  // 允许最大化
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default', // macOS优化
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -20,6 +27,11 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+
+    // 在开发环境下可选择性打开开发者工具
+    if (is.dev) {
+      // mainWindow.webContents.openDevTools()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -34,6 +46,8 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return mainWindow
 }
 
 // This method will be called when Electron has finished

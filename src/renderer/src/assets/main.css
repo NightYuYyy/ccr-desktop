@@ -1,13 +1,13 @@
 @import './base.css';
 
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  /* AURA-X: 修复滚动问题 - 移除overflow: hidden，调整布局模式 */
+  overflow: auto; /* 允许滚动 */
   background-image: url('./wavy-lines.svg');
   background-size: cover;
   user-select: none;
+  margin: 0;
+  padding: 0;
 }
 
 code {
@@ -27,11 +27,10 @@ code {
 }
 
 #app {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  margin-bottom: 80px;
+  /* AURA-X: 调整应用容器为全屏布局，支持内容滚动 */
+  width: 100%;
+  min-height: 100vh;
+  display: block; /* 改为block布局 */
 }
 
 .logo {

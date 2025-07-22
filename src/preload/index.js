@@ -10,6 +10,14 @@ const api = {
 
   async getConfigPaths() {
     return ipcRenderer.invoke('get-config-paths')
+  },
+
+  async openConfigFolder() {
+    return ipcRenderer.invoke('open-config-folder')
+  },
+
+  async saveSettings(configData) {
+    return ipcRenderer.invoke('save-settings', configData)
   }
 }
 

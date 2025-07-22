@@ -2,7 +2,7 @@ import {
   getClaudeCodeRouterSettingsPath,
   getClaudeCodeRouterConfigDir
 } from '../utils/pathUtils.js'
-import { readJsonFile } from '../utils/fileUtils.js'
+import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 
 /**
  * Claude Code Router 配置模板
@@ -82,6 +82,38 @@ export function getConfigPaths() {
   return {
     configPath: getClaudeCodeRouterSettingsPath(),
     configDir: getClaudeCodeRouterConfigDir()
+  }
+}
+
+/**
+ * 保存 Claude Code Router 配置文件
+ * @param {any} configData - 要保存的配置数据
+ * @returns {Promise<{success: boolean, error?: string, configPath?: string}>} 保存结果
+ */
+export async function saveClaudeCodeRouterSettings(configData) {
+  const configPath = getClaudeCodeRouterSettingsPath()
+
+  try {
+    const result = await writeJsonFile(configPath, configData)
+
+    if (result.success) {
+      return {
+        success: true,
+        configPath
+      }
+    } else {
+      return {
+        success: false,
+        error: result.error,
+        configPath
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: `保存配置时发生未知错误: ${error.message}`,
+      configPath
+    }
   }
 }
 

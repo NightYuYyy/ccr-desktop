@@ -18,6 +18,37 @@ const api = {
 
   async saveSettings(configData) {
     return ipcRenderer.invoke('save-settings', configData)
+  },
+
+  async execCommand(command) {
+    return ipcRenderer.invoke('exec-command', command)
+  },
+
+  // 监听命令实时输出
+  onCommandOutput(callback) {
+    ipcRenderer.on('command-output', callback)
+  },
+
+  // 移除命令输出监听器
+  removeCommandOutputListener(callback) {
+    ipcRenderer.removeListener('command-output', callback)
+  },
+
+  // === 细粒度配置操作API ===
+  async addProvider(providerData) {
+    return ipcRenderer.invoke('add-provider', providerData)
+  },
+
+  async updateProvider(providerName, updatedData) {
+    return ipcRenderer.invoke('update-provider', providerName, updatedData)
+  },
+
+  async deleteProvider(providerName) {
+    return ipcRenderer.invoke('delete-provider', providerName)
+  },
+
+  async updateDefaultModel(defaultModel) {
+    return ipcRenderer.invoke('update-default-model', defaultModel)
   }
 }
 

@@ -1,6 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ConfigTab from './components/ConfigTab.vue'
+import ServiceTab from './components/ServiceTab.vue'
 
 // 统一消息管理函数 - 确保同时只显示一条消息
 const showMessage = (message, type = 'info') => {
@@ -9,6 +11,7 @@ const showMessage = (message, type = 'info') => {
 }
 
 // 响应式数据
+const activeTab = ref('config')
 const configData = ref(null)
 const isLoading = ref(false)
 const configPaths = ref(null)
@@ -28,10 +31,20 @@ const newModelInput = ref('')
 const newTransformerText = ref('')
 const selectedProviderTransformerText = ref('')
 
+// 命令输出监听器
+const handleCommandOutput = (event, { data }) => {
+  // 这个监听器现在由ServiceTab组件处理
+}
+
 // 自动加载配置
 onMounted(() => {
   loadConfig()
   loadConfigPaths()
+})
+
+// 组件卸载时清理监听器
+onUnmounted(() => {
+  // ServiceTab组件自己处理清理
 })
 
 // 加载配置文件
@@ -115,23 +128,6 @@ const showAddProvider = () => {
   showAddProviderDialog.value = true
 }
 
-// 获取Provider状态
-const getProviderStatus = (provider) => {
-  if (!provider.api_key || provider.api_key.trim() === '') {
-    return { status: 'warning', text: '未配置Key' }
-  }
-  return { status: 'success', text: '已配置' }
-}
-
-// 格式化URL显示
-const formatUrl = (url) => {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return url
-  }
-}
-
 // 关闭弹窗
 const closeProviderDialog = () => {
   showProviderDialog.value = false
@@ -204,34 +200,33 @@ const deleteProvider = async () => {
       }
     )
 
-    // 从配置数据中移除该Provider
-    if (configData.value?.Providers) {
-      const index = configData.value.Providers.findIndex(p => p.name === selectedProvider.value.name)
-      if (index > -1) {
-        const providerName = selectedProvider.value.name
-        configData.value.Providers.splice(index, 1)
+    try {
+      // 使用细粒度API删除Provider
+      const providerName = selectedProvider.value.name
+      const result = await window.api.deleteProvider(providerName)
 
-        try {
-          // 保存到文件
-          const result = await window.api.saveSettings(configData.value)
-
-          if (result.success) {
-            showMessage(`服务商 "${providerName}" 已删除`, 'success')
-            closeProviderDialog()
-          } else {
-            // 保存失败，恢复数据
-            configData.value.Providers.splice(index, 0, selectedProvider.value)
-            showMessage(`删除失败: ${result.error}`, 'error')
+      if (result.success) {
+        // 从本地缓存中移除
+        if (configData.value?.Providers) {
+          const index = configData.value.Providers.findIndex(p => p.name === providerName)
+          if (index > -1) {
+            configData.value.Providers.splice(index, 1)
           }
-        } catch (error) {
-          // 保存异常，恢复数据
-          configData.value.Providers.splice(index, 0, selectedProvider.value)
-          showMessage(`删除异常: ${error.message}`, 'error')
-          console.error('删除配置异常:', error)
+
+          // 如果删除的Provider是当前默认模型的Provider，清空默认路由
+          if (configData.value.Router?.default?.startsWith(providerName + ',')) {
+            configData.value.Router.default = ''
+          }
         }
+
+        showMessage(`服务商 "${providerName}" 已删除`, 'success')
+        closeProviderDialog()
       } else {
-        showMessage('找不到要删除的服务商', 'error')
+        showMessage(`删除失败: ${result.error}`, 'error')
       }
+    } catch (error) {
+      showMessage(`删除异常: ${error.message}`, 'error')
+      console.error('删除配置异常:', error)
     }
   } catch {
     // 用户取消删除
@@ -254,18 +249,19 @@ const saveProviderConfig = async () => {
   }
 
   try {
-    // 更新配置数据中的Provider
-    if (configData.value?.Providers) {
-      const index = configData.value.Providers.findIndex(p => p.name === selectedProvider.value.name)
-      if (index > -1) {
-        configData.value.Providers[index] = { ...selectedProvider.value }
-      }
-    }
-
-    // 保存到文件
-    const result = await window.api.saveSettings(configData.value)
+    // 使用细粒度API更新Provider
+    const providerName = selectedProvider.value.name
+    const result = await window.api.updateProvider(providerName, selectedProvider.value)
 
     if (result.success) {
+      // 更新本地缓存数据
+      if (configData.value?.Providers) {
+        const index = configData.value.Providers.findIndex(p => p.name === providerName)
+        if (index > -1) {
+          configData.value.Providers[index] = { ...selectedProvider.value }
+        }
+      }
+
       showMessage('配置已保存', 'success')
       closeProviderDialog()
     } else {
@@ -300,41 +296,57 @@ const saveNewProvider = async () => {
   }
 
   try {
-    // 检查服务商名称是否已存在
-    if (configData.value?.Providers?.some(p => p.name === newProvider.value.name)) {
-      showMessage('服务商名称已存在，请使用不同的名称', 'error')
-      return
-    }
-
-    // 添加到配置数据
-    if (!configData.value) {
-      configData.value = { LOG: false, Providers: [], Router: { default: '' } }
-    }
-    if (!configData.value.Providers) {
-      configData.value.Providers = []
-    }
-
-    configData.value.Providers.push({ ...newProvider.value })
-
-    // 保存到文件
-    const result = await window.api.saveSettings(configData.value)
+    // 使用细粒度API添加Provider
+    const result = await window.api.addProvider(newProvider.value)
 
     if (result.success) {
+      // 添加到本地缓存数据
+      if (!configData.value) {
+        configData.value = { LOG: false, Providers: [], Router: { default: '' } }
+      }
+      if (!configData.value.Providers) {
+        configData.value.Providers = []
+      }
+
+      configData.value.Providers.push({ ...newProvider.value })
+
       showMessage(`服务商 "${newProvider.value.name}" 已添加`, 'success')
       closeAddProviderDialog()
     } else {
-      // 保存失败，移除刚添加的Provider
-      configData.value.Providers.pop()
       showMessage(`添加失败: ${result.error}`, 'error')
     }
   } catch (error) {
-    // 保存异常，移除刚添加的Provider
-    if (configData.value?.Providers?.length) {
-      configData.value.Providers.pop()
-    }
     showMessage(`添加异常: ${error.message}`, 'error')
     console.error('添加配置异常:', error)
   }
+}
+
+// 保存默认模型选择
+const saveDefaultModel = async (selectedModel) => {
+  try {
+    // 使用细粒度API更新默认模型
+    const result = await window.api.updateDefaultModel(selectedModel)
+
+    if (result.success) {
+      // 更新本地缓存数据
+      if (!configData.value.Router) {
+        configData.value.Router = {}
+      }
+      configData.value.Router.default = selectedModel
+
+      showMessage('默认模型已保存', 'success')
+    } else {
+      showMessage(`保存失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`保存异常: ${error.message}`, 'error')
+    console.error('保存默认模型异常:', error)
+  }
+}
+
+// 处理服务消息
+const handleServiceMessage = ({ text, type }) => {
+  showMessage(text, type)
 }
 </script>
 
@@ -345,11 +357,11 @@ const saveNewProvider = async () => {
       <div class="max-w-6xl mx-auto">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div class="flex items-center space-x-4">
-            <img alt="logo" class="w-10 h-10 sm:w-12 sm:h-12" src="./assets/electron.svg" />
+            <img alt="logo" class="w-10 h-10 sm:w-12 sm:h-12" src="./assets/icon.svg" />
             <div>
               <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Claude Code Router</h1>
               <div class="flex items-center gap-2">
-                <p class="text-sm text-gray-600">配置管理面板</p>
+                <p class="text-sm text-gray-600">管理面板</p>
                 <span v-if="configPaths" class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
                   {{ configPaths.configDir }}
                 </span>
@@ -357,7 +369,8 @@ const saveNewProvider = async () => {
             </div>
           </div>
 
-          <div class="flex items-center space-x-3 w-full sm:w-auto">
+          <!-- 顶部操作按钮 (仅在配置Tab显示) -->
+          <div v-if="activeTab === 'config'" class="flex items-center space-x-3 w-full sm:w-auto">
             <el-button type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
               添加服务商
             </el-button>
@@ -369,211 +382,34 @@ const saveNewProvider = async () => {
             </el-button>
           </div>
         </div>
+
+        <!-- Tab导航 -->
+        <div class="mt-4">
+          <el-tabs v-model="activeTab" class="ccr-tabs">
+            <el-tab-pane label="配置管理" name="config"></el-tab-pane>
+            <el-tab-pane label="启动服务" name="service"></el-tab-pane>
+          </el-tabs>
+        </div>
       </div>
     </div>
 
     <!-- 主内容区域 -->
     <div class="max-w-6xl mx-auto p-4 sm:p-6 pb-8">
-      <!-- 加载状态 -->
-      <div v-if="isLoading" class="flex justify-center items-center py-20">
-        <div class="text-center">
-          <div
-            class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
-          ></div>
-          <p class="text-gray-600">正在加载配置文件...</p>
-        </div>
+
+      <!-- 配置管理Tab内容 -->
+      <div v-if="activeTab === 'config'">
+        <ConfigTab
+          :config-data="configData"
+          :is-loading="isLoading"
+          @refresh="refreshConfig"
+          @save-default-model="saveDefaultModel"
+          @provider-click="showProviderDetail"
+        />
       </div>
 
-      <!-- 配置文件不存在 -->
-      <div v-else-if="!configData" class="text-center py-20">
-        <div class="bg-white rounded-lg shadow-md p-6 sm:p-8 max-w-md mx-auto">
-          <div class="text-gray-400 mb-4">
-            <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-          </div>
-          <h3 class="text-xl font-semibold text-gray-800 mb-2">配置文件不存在</h3>
-          <p class="text-gray-600 mb-6 text-sm sm:text-base">
-            请创建配置文件
-            <code class="bg-gray-100 px-2 py-1 rounded text-sm break-all"
-              >~/.cluade-code-router/setting.json</code
-            >
-          </p>
-          <el-button type="primary" @click="refreshConfig">重新检查</el-button>
-        </div>
-      </div>
-
-      <!-- Provider 卡片列表 -->
-      <div v-else>
-        <!-- 统计信息 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
-            <div class="flex items-center">
-              <div class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-lg flex justify-center items-center">
-                <svg
-                  class="w-5 h-5 sm:w-6 sm:h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-              </div>
-              <div class="ml-3 sm:ml-4">
-                <p class="text-xl sm:text-2xl font-bold text-gray-900">
-                  {{ configData.Providers?.length || 0 }}
-                </p>
-                <p class="text-sm text-gray-600">服务提供商</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
-            <div class="flex items-center">
-              <div class="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex justify-center items-center">
-                <svg
-                  class="w-5 h-5 sm:w-6 sm:h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div class="ml-3 sm:ml-4">
-                <p class="text-xl sm:text-2xl font-bold text-gray-900">
-                  {{
-                    configData.Providers?.filter((p) => p.api_key && p.api_key.trim() !== '')
-                      .length || 0
-                  }}
-                </p>
-                <p class="text-sm text-gray-600">已配置Key</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
-            <div class="flex items-center">
-              <div class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex justify-center items-center">
-                <svg
-                  class="w-5 h-5 sm:w-6 sm:h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <div class="ml-3 sm:ml-4">
-                <p class="text-xl sm:text-2xl font-bold text-gray-900">
-                  {{
-                    configData.Providers?.reduce((sum, p) => sum + (p.models?.length || 0), 0) || 0
-                  }}
-                </p>
-                <p class="text-sm text-gray-600">可用模型</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Provider 卡片网格 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-          <div
-            v-for="provider in configData.Providers"
-            :key="provider.name"
-            class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-            @click="showProviderDetail(provider)"
-          >
-            <div class="p-4 sm:p-6">
-              <!-- 头部：名称和状态 -->
-              <div class="flex items-start justify-between mb-4">
-                <div class="min-w-0 flex-1 mr-3">
-                  <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-1 truncate">{{ provider.name }}</h3>
-                  <p class="text-sm text-gray-500 truncate">{{ formatUrl(provider.api_base_url) }}</p>
-                </div>
-                <el-tag :type="getProviderStatus(provider).status" size="small" class="flex-shrink-0">
-                  {{ getProviderStatus(provider).text }}
-                </el-tag>
-              </div>
-
-              <!-- 模型信息 -->
-              <div class="mb-4">
-                <p class="text-sm text-gray-600 mb-2">
-                  可用模型 ({{ provider.models?.length || 0 }})
-                </p>
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    v-for="model in (provider.models || []).slice(0, 3)"
-                    :key="model"
-                    class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded truncate max-w-full"
-                    :title="model"
-                  >
-                    {{ model }}
-                  </span>
-                  <span
-                    v-if="(provider.models?.length || 0) > 3"
-                    class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
-                  >
-                    +{{ (provider.models?.length || 0) - 3 }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- 操作区域 -->
-              <div class="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div class="flex items-center text-sm text-gray-500">
-                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
-                  查看详情
-                </div>
-                <div class="flex items-center space-x-1">
-                  <div
-                    v-if="provider.transformer"
-                    class="w-2 h-2 bg-blue-500 rounded-full"
-                    title="已配置转换器"
-                  ></div>
-                  <div
-                    v-if="configData.Router?.default?.includes(provider.name)"
-                    class="w-2 h-2 bg-green-500 rounded-full"
-                    title="默认路由"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- 启动服务Tab内容 -->
+      <div v-if="activeTab === 'service'">
+        <ServiceTab @message="handleServiceMessage" />
       </div>
     </div>
 
@@ -622,7 +458,7 @@ const saveNewProvider = async () => {
               <div
                 v-for="model in selectedProvider.models"
                 :key="model"
-                class="flex items-center justify-between rounded px-3 py-2"
+                class="flex items-center justify-between bg-white rounded px-3 py-2"
               >
                 <span class="text-sm font-mono break-all pr-2">{{ model }}</span>
                 <el-button
@@ -720,7 +556,7 @@ const saveNewProvider = async () => {
               <div
                 v-for="model in newProvider.models"
                 :key="model"
-                class="flex items-center justify-between rounded px-3 py-2"
+                class="flex items-center justify-between bg-white rounded px-3 py-2"
               >
                 <span class="text-sm font-mono break-all pr-2">{{ model }}</span>
                 <el-button
@@ -778,5 +614,28 @@ const saveNewProvider = async () => {
 
 .logo:hover {
   filter: drop-shadow(0 0 2em #42b883aa);
+}
+
+/* Tab样式优化 */
+:deep(.ccr-tabs .el-tabs__header) {
+  margin: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+:deep(.ccr-tabs .el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+:deep(.ccr-tabs .el-tabs__item) {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+:deep(.ccr-tabs .el-tabs__item.is-active) {
+  color: #3b82f6;
+}
+
+:deep(.ccr-tabs .el-tabs__active-bar) {
+  background-color: #3b82f6;
 }
 </style>

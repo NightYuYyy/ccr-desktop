@@ -117,4 +117,239 @@ export async function saveClaudeCodeRouterSettings(configData) {
   }
 }
 
+/**
+ * 添加新的Provider
+ * @param {object} providerData - Provider数据
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function addProvider(providerData) {
+  try {
+    // 验证必需字段
+    if (!providerData.name || !providerData.api_base_url) {
+      return {
+        success: false,
+        error: 'Provider名称和API地址为必填项'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 检查名称是否已存在
+    if (config.Providers && config.Providers.some(p => p.name === providerData.name)) {
+      return {
+        success: false,
+        error: `Provider名称 "${providerData.name}" 已存在`
+      }
+    }
+
+    // 初始化Providers数组
+    if (!config.Providers) {
+      config.Providers = []
+    }
+
+    // 添加新Provider
+    config.Providers.push({ ...providerData })
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `添加Provider失败: ${error.message}`
+    }
+  }
+}
+
+/**
+ * 更新现有的Provider
+ * @param {string} providerName - Provider名称
+ * @param {object} updatedData - 更新的数据
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function updateProvider(providerName, updatedData) {
+  try {
+    if (!providerName) {
+      return {
+        success: false,
+        error: 'Provider名称不能为空'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 查找要更新的Provider
+    if (!config.Providers) {
+      return {
+        success: false,
+        error: '配置中不存在Providers'
+      }
+    }
+
+    const providerIndex = config.Providers.findIndex(p => p.name === providerName)
+    if (providerIndex === -1) {
+      return {
+        success: false,
+        error: `找不到名称为 "${providerName}" 的Provider`
+      }
+    }
+
+    // 更新Provider数据
+    config.Providers[providerIndex] = {
+      ...config.Providers[providerIndex],
+      ...updatedData,
+      name: providerName // 确保名称不被修改
+    }
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `更新Provider失败: ${error.message}`
+    }
+  }
+}
+
+/**
+ * 删除Provider
+ * @param {string} providerName - 要删除的Provider名称
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function deleteProvider(providerName) {
+  try {
+    if (!providerName) {
+      return {
+        success: false,
+        error: 'Provider名称不能为空'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 查找要删除的Provider
+    if (!config.Providers) {
+      return {
+        success: false,
+        error: '配置中不存在Providers'
+      }
+    }
+
+    const providerIndex = config.Providers.findIndex(p => p.name === providerName)
+    if (providerIndex === -1) {
+      return {
+        success: false,
+        error: `找不到名称为 "${providerName}" 的Provider`
+      }
+    }
+
+    // 删除Provider
+    config.Providers.splice(providerIndex, 1)
+
+    // 检查是否需要更新默认路由
+    if (config.Router && config.Router.default && config.Router.default.startsWith(providerName + ',')) {
+      config.Router.default = ''
+      console.log(`[ConfigService] 已清空默认路由，因为删除了Provider: ${providerName}`)
+    }
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `删除Provider失败: ${error.message}`
+    }
+  }
+}
+
+/**
+ * 更新默认模型选择
+ * @param {string} defaultModel - 默认模型 (格式: "providerName,modelName")
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function updateDefaultModel(defaultModel) {
+  try {
+    // 验证格式
+    if (defaultModel && !defaultModel.includes(',')) {
+      return {
+        success: false,
+        error: '默认模型格式错误，应为 "providerName,modelName"'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 如果提供了默认模型，验证其存在性
+    if (defaultModel) {
+      const [providerName, modelName] = defaultModel.split(',')
+      const provider = config.Providers?.find(p => p.name === providerName)
+
+      if (!provider) {
+        return {
+          success: false,
+          error: `找不到Provider: ${providerName}`
+        }
+      }
+
+      if (!provider.models || !provider.models.includes(modelName)) {
+        return {
+          success: false,
+          error: `Provider "${providerName}" 中找不到模型: ${modelName}`
+        }
+      }
+    }
+
+    // 初始化Router配置
+    if (!config.Router) {
+      config.Router = {}
+    }
+
+    // 更新默认模型
+    config.Router.default = defaultModel || ''
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `更新默认模型失败: ${error.message}`
+    }
+  }
+}
+
 

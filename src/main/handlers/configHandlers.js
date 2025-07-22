@@ -1,8 +1,13 @@
 import { ipcMain, shell } from 'electron'
+import { spawn } from 'child_process'
 import {
   readClaudeCodeRouterSettings,
   getConfigPaths,
-  saveClaudeCodeRouterSettings
+  saveClaudeCodeRouterSettings,
+  addProvider,
+  updateProvider,
+  deleteProvider,
+  updateDefaultModel
 } from '../services/configService.js'
 
 /**
@@ -111,6 +116,203 @@ export function registerConfigHandlers() {
     }
   })
 
+    // 执行命令的处理器（支持实时输出）
+  ipcMain.handle('exec-command', async (event, command) => {
+    return new Promise((resolve) => {
+      console.log('[ConfigHandler] 执行命令:', command)
+
+      // 分割命令和参数
+      const cmdParts = command.split(' ')
+      const cmd = cmdParts[0]
+      const args = cmdParts.slice(1)
+
+      let stdout = ''
+      let stderr = ''
+      let hasOutput = false
+
+      const child = spawn(cmd, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true
+      })
+
+      // 监听标准输出
+      child.stdout.on('data', (data) => {
+        const output = data.toString()
+        stdout += output
+        hasOutput = true
+        console.log('[ConfigHandler] stdout:', output.trim())
+
+        // 发送实时输出到前端
+        event.sender.send('command-output', {
+          type: 'stdout',
+          data: output
+        })
+      })
+
+      // 监听错误输出
+      child.stderr.on('data', (data) => {
+        const output = data.toString()
+        stderr += output
+        hasOutput = true
+        console.log('[ConfigHandler] stderr:', output.trim())
+
+        // 发送实时输出到前端
+        event.sender.send('command-output', {
+          type: 'stderr',
+          data: output
+        })
+      })
+
+            // 监听进程结束
+      child.on('close', (code) => {
+        clearTimeout(serviceCheckTimeout)
+        console.log('[ConfigHandler] 命令执行完成，退出码:', code)
+
+        resolve({
+          success: code === 0,
+          exitCode: code,
+          stdout: stdout,
+          stderr: stderr,
+          hasOutput: hasOutput,
+          error: code !== 0 ? `进程退出码: ${code}` : null
+        })
+      })
+
+      // 监听错误事件
+      child.on('error', (error) => {
+        clearTimeout(serviceCheckTimeout)
+        console.error('[ConfigHandler] 命令执行失败:', error)
+        resolve({
+          success: false,
+          error: error.message,
+          stdout: stdout,
+          stderr: stderr,
+          hasOutput: hasOutput
+        })
+      })
+
+            // 对于服务类命令，等待3秒后如果进程仍在运行且有输出，则认为启动成功
+      const serviceCheckTimeout = setTimeout(() => {
+        if (child.exitCode === null && !child.killed) {
+          // 进程仍在运行，认为服务启动成功
+          console.log('[ConfigHandler] 服务启动成功，进程持续运行中')
+          resolve({
+            success: true,
+            running: true,
+            stdout: stdout,
+            stderr: stderr,
+            hasOutput: hasOutput,
+            message: '服务已启动并在后台运行'
+          })
+        }
+      }, 3000)
+    })
+  })
+
+  // 添加Provider的处理器
+  ipcMain.handle('add-provider', async (event, providerData) => {
+    try {
+      console.log('[ConfigHandler] 添加Provider:', providerData.name)
+
+      const result = await addProvider(providerData)
+
+      if (result.success) {
+        console.log('[ConfigHandler] Provider添加成功')
+        return {
+          success: true,
+          message: `Provider "${providerData.name}" 添加成功`
+        }
+      } else {
+        console.warn('[ConfigHandler] Provider添加失败:', result.error)
+        return result
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理添加Provider请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 更新Provider的处理器
+  ipcMain.handle('update-provider', async (event, providerName, updatedData) => {
+    try {
+      console.log('[ConfigHandler] 更新Provider:', providerName)
+
+      const result = await updateProvider(providerName, updatedData)
+
+      if (result.success) {
+        console.log('[ConfigHandler] Provider更新成功')
+        return {
+          success: true,
+          message: `Provider "${providerName}" 更新成功`
+        }
+      } else {
+        console.warn('[ConfigHandler] Provider更新失败:', result.error)
+        return result
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理更新Provider请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 删除Provider的处理器
+  ipcMain.handle('delete-provider', async (event, providerName) => {
+    try {
+      console.log('[ConfigHandler] 删除Provider:', providerName)
+
+      const result = await deleteProvider(providerName)
+
+      if (result.success) {
+        console.log('[ConfigHandler] Provider删除成功')
+        return {
+          success: true,
+          message: `Provider "${providerName}" 删除成功`
+        }
+      } else {
+        console.warn('[ConfigHandler] Provider删除失败:', result.error)
+        return result
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理删除Provider请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 更新默认模型的处理器
+  ipcMain.handle('update-default-model', async (event, defaultModel) => {
+    try {
+      console.log('[ConfigHandler] 更新默认模型:', defaultModel)
+
+      const result = await updateDefaultModel(defaultModel)
+
+      if (result.success) {
+        console.log('[ConfigHandler] 默认模型更新成功')
+        return {
+          success: true,
+          message: '默认模型更新成功'
+        }
+      } else {
+        console.warn('[ConfigHandler] 默认模型更新失败:', result.error)
+        return result
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理更新默认模型请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
   console.log('[ConfigHandler] 配置处理器注册完成')
 }
 
@@ -122,5 +324,10 @@ export function unregisterConfigHandlers() {
   ipcMain.removeHandler('get-config-paths')
   ipcMain.removeHandler('open-config-folder')
   ipcMain.removeHandler('save-settings')
+  ipcMain.removeHandler('exec-command')
+  ipcMain.removeHandler('add-provider')
+  ipcMain.removeHandler('update-provider')
+  ipcMain.removeHandler('delete-provider')
+  ipcMain.removeHandler('update-default-model')
   console.log('[ConfigHandler] 配置处理器注销完成')
 }

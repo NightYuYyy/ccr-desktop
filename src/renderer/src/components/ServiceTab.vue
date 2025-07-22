@@ -5,15 +5,47 @@
       <div class="flex items-center justify-between mb-4">
         <div>
           <h3 class="text-lg font-semibold text-gray-900">CCR服务控制</h3>
-          <p class="text-sm text-gray-600 mt-1">启动Claude Code Router服务</p>
+          <p class="text-sm text-gray-600 mt-1">启动和管理Claude Code Router服务</p>
         </div>
-        <div class="flex space-x-3">
-          <el-button type="primary" @click="startService" :loading="isStarting" size="large">
-            {{ isStarting ? '正在启动...' : '启动CCR服务' }}
-          </el-button>
-          <el-button @click="clearOutput" :disabled="!serviceOutput" size="large">
-            清空日志
-          </el-button>
+        <div class="flex items-center space-x-3">
+          <!-- 服务状态指示器 -->
+          <div class="flex items-center space-x-2">
+            <div :class="['w-2 h-2 rounded-full', isServiceRunning ? 'bg-green-500' : 'bg-gray-400']"></div>
+            <span class="text-sm font-medium" :class="isServiceRunning ? 'text-green-600' : 'text-gray-600'">
+              {{ isServiceRunning ? '服务运行中' : '服务已停止' }}
+            </span>
+          </div>
+
+          <!-- 控制按钮 -->
+          <div class="flex space-x-3">
+            <el-button
+              v-if="!isServiceRunning"
+              type="primary"
+              @click="startService"
+              :loading="isStarting"
+              size="large"
+            >
+              {{ isStarting ? '正在启动...' : '启动CCR服务' }}
+            </el-button>
+
+            <el-button
+              v-if="isServiceRunning"
+              type="danger"
+              @click="stopService"
+              :loading="isStopping"
+              size="large"
+            >
+              {{ isStopping ? '正在停止...' : '停止CCR服务' }}
+            </el-button>
+
+            <el-button @click="checkServiceStatus" :loading="isCheckingStatus" size="large">
+              {{ isCheckingStatus ? '检查中...' : '刷新状态' }}
+            </el-button>
+
+            <el-button @click="clearOutput" :disabled="!serviceOutput" size="large">
+              清空日志
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
@@ -54,6 +86,9 @@ const emit = defineEmits(['message'])
 
 // 响应式数据
 const isStarting = ref(false)
+const isStopping = ref(false)
+const isCheckingStatus = ref(false)
+const isServiceRunning = ref(false)
 const serviceOutput = ref('')
 const lastCommandResult = ref(null)
 
@@ -69,15 +104,50 @@ const handleCommandOutput = (event, { data }) => {
   })
 }
 
-// 组件挂载时监听命令输出
+// 组件挂载时监听命令输出并检查初始状态
 onMounted(() => {
   window.api.onCommandOutput(handleCommandOutput)
+  checkServiceStatus() // 检查初始服务状态
 })
 
 // 组件卸载时清理监听器
 onUnmounted(() => {
   window.api.removeCommandOutputListener(handleCommandOutput)
 })
+
+// 检查服务状态
+const checkServiceStatus = async () => {
+  if (isCheckingStatus.value) return
+
+  isCheckingStatus.value = true
+
+  try {
+    const result = await window.api.execCommand('ccr status')
+
+    // 根据命令输出内容判断服务状态
+    // 检查stdout中是否包含运行状态信息
+    if (result.success && result.stdout) {
+      // 如果输出包含"Running"且不包含"Not Running"，则认为服务正在运行
+      const output = result.stdout.toLowerCase()
+      const isRunning = output.includes('running') && !output.includes('not running')
+      isServiceRunning.value = isRunning
+    } else {
+      // 命令执行失败或无输出，认为服务未运行
+      isServiceRunning.value = false
+    }
+
+    console.log('[ServiceTab] 服务状态检查结果:', {
+      success: result.success,
+      stdout: result.stdout,
+      isRunning: isServiceRunning.value
+    })
+  } catch (error) {
+    console.error('[ServiceTab] 检查服务状态异常:', error)
+    isServiceRunning.value = false
+  } finally {
+    isCheckingStatus.value = false
+  }
+}
 
 // 启动CCR服务
 const startService = async () => {
@@ -95,11 +165,16 @@ const startService = async () => {
       if (result.running) {
         serviceOutput.value += `\n✅ 服务启动成功，正在后台运行\n`
         emit('message', { text: 'CCR服务启动成功，正在后台运行', type: 'success' })
+        isServiceRunning.value = true // 更新服务状态
       } else if (!result.hasOutput) {
         serviceOutput.value += `✅ 命令执行成功（无输出）\n`
         emit('message', { text: '命令执行成功', type: 'success' })
+        // 执行状态检查确认服务状态
+        await checkServiceStatus()
       } else {
         emit('message', { text: '命令执行成功', type: 'success' })
+        // 执行状态检查确认服务状态
+        await checkServiceStatus()
       }
     } else {
       serviceOutput.value += `\n❌ 服务启动失败\n`
@@ -107,13 +182,50 @@ const startService = async () => {
         serviceOutput.value += `错误: ${result.error}\n`
       }
       emit('message', { text: `服务启动失败: ${result.error}`, type: 'error' })
+      isServiceRunning.value = false // 确保状态正确
     }
   } catch (error) {
     serviceOutput.value += `\n❌ 启动异常: ${error.message}\n`
     emit('message', { text: `启动异常: ${error.message}`, type: 'error' })
     console.error('启动服务异常:', error)
+    isServiceRunning.value = false
   } finally {
     isStarting.value = false
+  }
+}
+
+// 停止CCR服务
+const stopService = async () => {
+  if (isStopping.value) return
+
+  isStopping.value = true
+  serviceOutput.value += '\n正在停止CCR服务...\n'
+
+  try {
+    const result = await window.api.execCommand('ccr stop')
+    lastCommandResult.value = result
+
+    if (result.success) {
+      serviceOutput.value += `\n✅ 服务停止成功\n`
+      emit('message', { text: 'CCR服务已停止', type: 'success' })
+      isServiceRunning.value = false // 更新服务状态
+    } else {
+      serviceOutput.value += `\n❌ 服务停止失败\n`
+      if (result.error) {
+        serviceOutput.value += `错误: ${result.error}\n`
+      }
+      emit('message', { text: `服务停止失败: ${result.error}`, type: 'error' })
+      // 执行状态检查确认实际状态
+      await checkServiceStatus()
+    }
+  } catch (error) {
+    serviceOutput.value += `\n❌ 停止异常: ${error.message}\n`
+    emit('message', { text: `停止异常: ${error.message}`, type: 'error' })
+    console.error('停止服务异常:', error)
+    // 执行状态检查确认实际状态
+    await checkServiceStatus()
+  } finally {
+    isStopping.value = false
   }
 }
 

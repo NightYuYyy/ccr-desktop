@@ -113,6 +113,8 @@ const formatUrl = (url) => {
 
 // 是否是默认Provider
 const isDefaultProvider = computed(() => {
-  return props.defaultRoute?.includes(props.provider.name)
+  if (!props.defaultRoute) return false
+  // 精确匹配：默认路由必须以"Provider名称,"开头
+  return props.defaultRoute.startsWith(props.provider.name + ',')
 })
 </script>

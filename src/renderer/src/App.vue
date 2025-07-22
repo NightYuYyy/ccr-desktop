@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ConfigTab from './components/ConfigTab.vue'
 import ServiceTab from './components/ServiceTab.vue'
@@ -30,11 +30,6 @@ const newProvider = ref({
 const newModelInput = ref('')
 const newTransformerText = ref('')
 const selectedProviderTransformerText = ref('')
-
-// 命令输出监听器
-const handleCommandOutput = (event, { data }) => {
-  // 这个监听器现在由ServiceTab组件处理
-}
 
 // 自动加载配置
 onMounted(() => {
@@ -251,7 +246,9 @@ const saveProviderConfig = async () => {
   try {
     // 使用细粒度API更新Provider
     const providerName = selectedProvider.value.name
-    const result = await window.api.updateProvider(providerName, selectedProvider.value)
+    // 将响应式对象转换为普通对象，避免序列化错误
+    const providerData = JSON.parse(JSON.stringify(selectedProvider.value))
+    const result = await window.api.updateProvider(providerName, providerData)
 
     if (result.success) {
       // 更新本地缓存数据
@@ -297,7 +294,9 @@ const saveNewProvider = async () => {
 
   try {
     // 使用细粒度API添加Provider
-    const result = await window.api.addProvider(newProvider.value)
+    // 将响应式对象转换为普通对象，避免序列化错误
+    const providerData = JSON.parse(JSON.stringify(newProvider.value))
+    const result = await window.api.addProvider(providerData)
 
     if (result.success) {
       // 添加到本地缓存数据
@@ -422,10 +421,11 @@ const handleServiceMessage = ({ text, type }) => {
       :lock-scroll="false"
       @closed="closeProviderDialog"
       append-to-body
+      height="600px"
     >
-      <div v-if="selectedProvider" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      <div v-if="selectedProvider" class="space-y-4 h-[500px] flex flex-col">
         <!-- 基本信息 -->
-        <div class="bg-gray-50 rounded-lg p-4">
+        <div class="bg-gray-50 rounded-lg p-4 flex-shrink-0">
           <h4 class="font-medium text-gray-900 mb-3">基本信息</h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
@@ -440,7 +440,7 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- API Key配置 -->
-        <div>
+        <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
           <el-input
             v-model="selectedProvider.api_key"
@@ -451,9 +451,9 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- 模型列表 -->
-        <div>
+        <div class="flex-1 min-h-0 flex flex-col">
           <label class="block text-sm font-medium text-gray-700 mb-2">支持的模型</label>
-          <div class="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+          <div class="bg-gray-50 rounded-lg p-3 flex-1 min-h-0 overflow-y-auto mb-3">
             <div v-if="selectedProvider.models?.length" class="space-y-1">
               <div
                 v-for="model in selectedProvider.models"
@@ -474,7 +474,7 @@ const handleServiceMessage = ({ text, type }) => {
             </div>
             <div v-else class="text-center text-gray-500 text-sm py-4">暂无配置模型</div>
           </div>
-          <div class="flex gap-2 mt-3">
+          <div class="flex gap-2 flex-shrink-0">
             <el-input
               v-model="newModelInput"
               placeholder="输入新模型名称"
@@ -489,12 +489,12 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- 转换器配置 -->
-        <div>
+        <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">转换器配置</label>
           <el-input
             v-model="selectedProviderTransformerText"
             type="textarea"
-            :rows="6"
+            :rows="3"
             placeholder="请输入转换器配置 (JSON)，留空则不使用转换器"
           />
         </div>
@@ -520,10 +520,11 @@ const handleServiceMessage = ({ text, type }) => {
       :lock-scroll="false"
       @closed="closeAddProviderDialog"
       append-to-body
+      height="600px"
     >
-      <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      <div class="space-y-4 h-[500px] flex flex-col">
         <!-- 基本信息 -->
-        <div class="bg-gray-50 rounded-lg p-4">
+        <div class="bg-gray-50 rounded-lg p-4 flex-shrink-0">
           <h4 class="font-medium text-gray-900 mb-3">基本信息</h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
@@ -538,7 +539,7 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- API Key配置 -->
-        <div>
+        <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
           <el-input
             v-model="newProvider.api_key"
@@ -549,9 +550,9 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- 模型列表 -->
-        <div>
+        <div class="flex-1 min-h-0 flex flex-col">
           <label class="block text-sm font-medium text-gray-700 mb-2">支持的模型</label>
-          <div class="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+          <div class="bg-gray-50 rounded-lg p-3 flex-1 min-h-0 overflow-y-auto mb-3">
             <div v-if="newProvider.models?.length" class="space-y-1">
               <div
                 v-for="model in newProvider.models"
@@ -572,7 +573,7 @@ const handleServiceMessage = ({ text, type }) => {
             </div>
             <div v-else class="text-center text-gray-500 text-sm py-4">暂无配置模型</div>
           </div>
-          <div class="flex items-center mt-2 gap-2">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <el-input
               v-model="newModelInput"
               placeholder="输入新模型名称 (按回车添加)"
@@ -586,7 +587,7 @@ const handleServiceMessage = ({ text, type }) => {
         </div>
 
         <!-- 转换器配置 -->
-        <div>
+        <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">转换器配置 (JSON)</label>
           <el-input
             v-model="newTransformerText"

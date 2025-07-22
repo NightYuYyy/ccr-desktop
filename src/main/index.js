@@ -18,7 +18,8 @@ function createWindow() {
     resizable: true,    // 明确设置可调整大小
     maximizable: true,  // 允许最大化
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default', // macOS优化
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
+    // ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

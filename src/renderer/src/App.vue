@@ -240,7 +240,8 @@ const saveProviderConfig = async () => {
       return
     }
   } else {
-    selectedProvider.value.transformer = null
+    // 如果转换器配置为空，删除该字段而不是设置为null
+    delete selectedProvider.value.transformer
   }
 
   try {
@@ -290,6 +291,9 @@ const saveNewProvider = async () => {
       showMessage('Transformer JSON格式错误', 'error')
       return
     }
+  } else {
+    // 如果转换器配置为空，删除该字段而不是设置为null
+    delete newProvider.value.transformer
   }
 
   try {

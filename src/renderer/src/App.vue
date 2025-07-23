@@ -35,7 +35,25 @@ const selectedProviderTransformerText = ref('')
 onMounted(() => {
   loadConfig()
   loadConfigPaths()
+
+  // {{ AURA-X: Modify - 应用启动时触发悬浮窗刷新. Approval: 寸止确认. }}
+  // 通过主进程统一更新悬浮窗状态
+  window.api.refreshFloatingWindow()
+
+  // 延迟检查服务状态来更新悬浮窗显示
+  setTimeout(() => {
+    checkServiceStatusAndUpdateFloatingWindow()
+  }, 1000)
 })
+
+// {{ AURA-X: Modify - 简化为直接触发主进程刷新，避免重复逻辑. Approval: 寸止确认. }}
+const updateFloatingWindowWithCurrentInfo = async () => {
+  // 直接触发主进程刷新，由主进程统一处理模型信息获取和服务状态检测
+  window.api.refreshFloatingWindow()
+}
+
+// 保持向后兼容的函数名
+const checkServiceStatusAndUpdateFloatingWindow = updateFloatingWindowWithCurrentInfo
 
 // 组件卸载时清理监听器
 onUnmounted(() => {
@@ -52,6 +70,10 @@ const loadConfig = async () => {
     if (result.success) {
       configData.value = result.data
       showMessage('配置加载成功', 'success')
+
+      // {{ AURA-X: Modify - 配置加载后更新悬浮窗. Approval: 寸止确认. }}
+      // 更新悬浮窗显示的模型信息和服务状态
+      updateFloatingWindowWithCurrentInfo()
     } else {
       configData.value = null
       showMessage('配置文件加载失败', 'error')
@@ -338,6 +360,10 @@ const saveDefaultModel = async (selectedModel) => {
       configData.value.Router.default = selectedModel
 
       showMessage('默认模型已保存', 'success')
+
+      // {{ AURA-X: Modify - 默认模型保存后更新悬浮窗. Approval: 寸止确认. }}
+      // 更新悬浮窗显示的模型信息和服务状态
+      updateFloatingWindowWithCurrentInfo()
     } else {
       showMessage(`保存失败: ${result.error}`, 'error')
     }

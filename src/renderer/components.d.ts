@@ -10,9 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ConfigTab: typeof import('./src/components/ConfigTab.vue')['default']
     DefaultModelSelector: typeof import('./src/components/DefaultModelSelector.vue')['default']
-    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
-    ElCard: typeof import('element-plus/es')['ElCard']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElInput: typeof import('element-plus/es')['ElInput']
     ElOption: typeof import('element-plus/es')['ElOption']
@@ -21,8 +19,9 @@ declare module 'vue' {
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
     ProviderCard: typeof import('./src/components/ProviderCard.vue')['default']
+    RouterLink: typeof import('vue-router')['RouterLink']
+    RouterView: typeof import('vue-router')['RouterView']
     ServiceTab: typeof import('./src/components/ServiceTab.vue')['default']
     StatisticsCards: typeof import('./src/components/StatisticsCards.vue')['default']
-    Versions: typeof import('./src/components/Versions.vue')['default']
   }
 }

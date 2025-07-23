@@ -49,6 +49,36 @@ const api = {
 
   async updateDefaultModel(defaultModel) {
     return ipcRenderer.invoke('update-default-model', defaultModel)
+  },
+
+  // 悬浮窗相关API
+  updateFloatingWindow(content) {
+    ipcRenderer.send('update-floating-window', content)
+  },
+
+  // 关闭悬浮窗
+  closeFloatingWindow() {
+    ipcRenderer.send('close-floating-window')
+  },
+
+  // {{ AURA-X: Add - 新增移动悬浮窗位置的API. Approval: 寸止确认. }}
+  moveFloatingWindow(deltaX, deltaY) {
+    ipcRenderer.send('move-floating-window', deltaX, deltaY)
+  },
+
+  // {{ AURA-X: Add - 新增刷新悬浮窗的API. Approval: 寸止确认. }}
+  refreshFloatingWindow() {
+    ipcRenderer.send('refresh-floating-window')
+  },
+
+  // 监听悬浮窗内容更新
+  onUpdateContent(callback) {
+    ipcRenderer.on('update-content', callback)
+  },
+
+  // 移除悬浮窗内容更新监听器
+  removeUpdateContentListener(callback) {
+    ipcRenderer.removeListener('update-content', callback)
   }
 }
 

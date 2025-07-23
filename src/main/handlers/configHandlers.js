@@ -94,6 +94,12 @@ export function registerConfigHandlers() {
 
       if (result.success) {
         console.log('[ConfigHandler] 配置文件保存成功:', result.configPath)
+
+        // {{ AURA-X: Add - 配置保存成功后刷新悬浮窗. Approval: 寸止确认. }}
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
         return {
           success: true,
           message: '配置已保存',
@@ -296,6 +302,12 @@ export function registerConfigHandlers() {
 
       if (result.success) {
         console.log('[ConfigHandler] 默认模型更新成功')
+
+        // {{ AURA-X: Add - 默认模型更新成功后刷新悬浮窗. Approval: 寸止确认. }}
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
         return {
           success: true,
           message: '默认模型更新成功'

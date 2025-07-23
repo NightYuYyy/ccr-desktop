@@ -5,6 +5,21 @@ import 'virtual:uno.css'
 import 'element-plus/dist/index.css'
 
 import { createApp } from 'vue'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import App from './App.vue'
+import FloatingWindow from './views/FloatingWindow.vue'
 
-createApp(App).mount('#app')
+// 创建路由
+const routes = [
+  { path: '/', component: App },
+  { path: '/floating', component: FloatingWindow }
+]
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes
+})
+
+const app = createApp(App)
+app.use(router)
+app.mount('#app')

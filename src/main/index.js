@@ -11,6 +11,9 @@ let floatingWindow = null
 // {{ AURA-X: Add - 定期更新悬浮窗信息. Approval: 寸止确认. }}
 let floatingWindowUpdateInterval = null
 
+// {{ AURA-X: Add - 添加退出标志防止无限循环. Approval: 寸止确认. }}
+let isQuitting = false
+
 function startFloatingWindowUpdates() {
   // {{ AURA-X: Modify - 使用统一的FloatingService. Approval: 寸止确认. }}
   // 每30秒更新一次悬浮窗信息
@@ -136,6 +139,11 @@ function createWindow() {
 
   // 处理窗口关闭事件，提示用户选择最小化或关闭
   mainWindow.on('close', (event) => {
+    // {{ AURA-X: Modify - 添加isQuitting标志防止无限循环. Approval: 寸止确认. }}
+    if (isQuitting) {
+      return
+    }
+
     // 阻止默认关闭行为
     event.preventDefault()
 
@@ -154,6 +162,14 @@ function createWindow() {
         // {{ AURA-X: Modify - 悬浮窗已常驻显示，无需重复创建. Approval: 寸止确认. }}
       } else {
         // 退出程序
+        // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
+        // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
+        isQuitting = true
+        if (floatingWindow) {
+          floatingWindow.destroy()
+          floatingWindow = null
+        }
+        stopFloatingWindowUpdates()
         app.quit()
       }
     })
@@ -214,6 +230,25 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // {{ AURA-X: Add - 监听应用退出事件，确保清理所有资源. Approval: 寸止确认. }}
+  app.on('before-quit', () => {
+    // {{ AURA-X: Add - 设置退出标志防止无限循环. Approval: 寸止确认. }}
+    isQuitting = true
+
+    // 清理悬浮窗资源
+    if (floatingWindow) {
+      floatingWindow.destroy()
+      floatingWindow = null
+    }
+    stopFloatingWindowUpdates()
+
+    // 如果有托盘图标，也需要销毁
+    if (tray) {
+      tray.destroy()
+      tray = null
+    }
+  })
 })
 
 // 创建系统托盘图标和菜单
@@ -236,6 +271,14 @@ function createTray(mainWindow) {
     {
       label: '退出程序',
       click: () => {
+        // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
+        // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
+        isQuitting = true
+        if (floatingWindow) {
+          floatingWindow.destroy()
+          floatingWindow = null
+        }
+        stopFloatingWindowUpdates()
         app.quit()
       }
     }

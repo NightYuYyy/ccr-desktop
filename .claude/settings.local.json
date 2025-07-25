@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git add:*)",
       "WebFetch(domain:github.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

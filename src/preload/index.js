@@ -16,6 +16,10 @@ const api = {
     return ipcRenderer.invoke('open-config-folder')
   },
 
+  async openClaudeConfigFolder() {
+    return ipcRenderer.invoke('open-claude-config-folder')
+  },
+
   async saveSettings(configData) {
     return ipcRenderer.invoke('save-settings', configData)
   },
@@ -49,6 +53,23 @@ const api = {
 
   async updateDefaultModel(defaultModel) {
     return ipcRenderer.invoke('update-default-model', defaultModel)
+  },
+
+  // === Claude配置相关API ===
+  async getHomeDir() {
+    return ipcRenderer.invoke('get-home-dir')
+  },
+
+  async getClaudeSettingsPath() {
+    return ipcRenderer.invoke('get-claude-settings-path')
+  },
+
+  async readFile(filePath) {
+    return ipcRenderer.invoke('read-file', filePath)
+  },
+
+  async writeFile(filePath, content) {
+    return ipcRenderer.invoke('write-file', filePath, content)
   },
 
   // 悬浮窗相关API

@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ConfigTab from './components/ConfigTab.vue'
 import ServiceTab from './components/ServiceTab.vue'
+import ClaudeConfigTab from './components/ClaudeConfigTab.vue'
 
 // 统一消息管理函数 - 确保同时只显示一条消息
 const showMessage = (message, type = 'info') => {
@@ -18,6 +19,7 @@ const configPaths = ref(null)
 const selectedProvider = ref(null)
 const showProviderDialog = ref(false)
 const showAddProviderDialog = ref(false)
+const useProxy = ref(false)
 const newProvider = ref({
   name: '',
   api_base_url: '',
@@ -377,6 +379,12 @@ const saveDefaultModel = async (selectedModel) => {
 const handleServiceMessage = ({ text, type }) => {
   showMessage(text, type)
 }
+
+// 处理全局代理切换
+const handleGlobalProxyChange = (value) => {
+  showMessage(`已切换到${value ? '代理模式' : '直连模式'}`, 'info')
+  // 这里可以根据需要添加全局代理设置逻辑
+}
 </script>
 
 <template>
@@ -389,21 +397,28 @@ const handleServiceMessage = ({ text, type }) => {
             <img alt="logo" class="w-10 h-10 sm:w-12 sm:h-12" src="./assets/icon.svg" />
             <div>
               <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Claude Code Router</h1>
-              <div class="flex items-center gap-2">
-                <p class="text-sm text-gray-600">管理面板</p>
-                <span v-if="configPaths" class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
-                  {{ configPaths.configDir }}
-                </span>
-              </div>
+              <p class="text-sm text-gray-600">管理面板</p>
             </div>
           </div>
 
-          <!-- 顶部操作按钮 (仅在配置Tab显示) -->
-          <div v-if="activeTab === 'config'" class="flex items-center space-x-3 w-full sm:w-auto">
-            <el-button type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
+          <!-- 顶部操作按钮 -->
+          <div class="flex items-center space-x-3 w-full sm:w-auto">
+            <!-- 网络连接模式切换 -->
+            <div class="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg">
+              <span class="text-sm text-gray-600">网络模式:</span>
+              <el-switch
+                v-model="useProxy"
+                active-text="代理"
+                inactive-text="直连"
+                size="small"
+                @change="handleGlobalProxyChange"
+              />
+            </div>
+            
+            <el-button v-if="activeTab === 'config'" type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
               添加服务商
             </el-button>
-            <el-button type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
+            <el-button v-if="activeTab === 'config'" type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
               {{ isLoading ? '加载中...' : '刷新配置' }}
             </el-button>
             <el-button type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
@@ -416,6 +431,7 @@ const handleServiceMessage = ({ text, type }) => {
         <div class="mt-4">
           <el-tabs v-model="activeTab" class="ccr-tabs">
             <el-tab-pane label="配置管理" name="config"></el-tab-pane>
+            <el-tab-pane label="Claude配置" name="claude"></el-tab-pane>
             <el-tab-pane label="启动服务" name="service"></el-tab-pane>
           </el-tabs>
         </div>
@@ -434,6 +450,11 @@ const handleServiceMessage = ({ text, type }) => {
           @save-default-model="saveDefaultModel"
           @provider-click="showProviderDetail"
         />
+      </div>
+
+      <!-- Claude配置Tab内容 -->
+      <div v-if="activeTab === 'claude'">
+        <ClaudeConfigTab />
       </div>
 
       <!-- 启动服务Tab内容 -->

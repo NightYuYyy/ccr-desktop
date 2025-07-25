@@ -1,5 +1,7 @@
 import { ipcMain, shell } from 'electron'
 import { spawn } from 'child_process'
+import { join, dirname } from 'path'
+import { writeFile } from 'fs/promises'
 import {
   readClaudeCodeRouterSettings,
   getConfigPaths,
@@ -9,6 +11,8 @@ import {
   deleteProvider,
   updateDefaultModel
 } from '../services/configService.js'
+import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
+import { getUserHomeDir, getClaudeSettingsPath, getClaudeConfigDir } from '../utils/pathUtils.js'
 
 /**
  * 注册配置相关的IPC处理器
@@ -81,6 +85,27 @@ export function registerConfigHandlers() {
       return {
         success: false,
         error: `打开配置文件夹失败: ${error.message}`
+      }
+    }
+  })
+
+  // 打开Claude配置文件夹的处理器
+  ipcMain.handle('open-claude-config-folder', async () => {
+    try {
+      const claudeConfigDir = getClaudeConfigDir()
+      console.log('[ConfigHandler] 尝试打开Claude配置文件夹:', claudeConfigDir)
+
+      await shell.openPath(claudeConfigDir)
+
+      return {
+        success: true,
+        message: 'Claude配置文件夹已打开'
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 打开Claude配置文件夹失败:', error)
+      return {
+        success: false,
+        error: `打开Claude配置文件夹失败: ${error.message}`
       }
     }
   })
@@ -325,6 +350,83 @@ export function registerConfigHandlers() {
     }
   })
 
+    // 获取用户主目录的处理器
+  ipcMain.handle('get-home-dir', async () => {
+    try {
+      const homeDir = getUserHomeDir()
+      return {
+        success: true,
+        data: homeDir
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 获取用户主目录失败:', error)
+      return {
+        success: false,
+        error: `获取用户主目录失败: ${error.message}`
+      }
+    }
+  })
+
+  // 获取Claude配置文件路径的处理器
+  ipcMain.handle('get-claude-settings-path', async () => {
+    try {
+      const configPath = getClaudeSettingsPath()
+      return {
+        success: true,
+        data: configPath
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 获取Claude配置文件路径失败:', error)
+      return {
+        success: false,
+        error: `获取Claude配置文件路径失败: ${error.message}`
+      }
+    }
+  })
+
+  // 读取文件的处理器
+  ipcMain.handle('read-file', async (event, filePath) => {
+    try {
+      const result = await readJsonFile(filePath)
+      return result
+    } catch (error) {
+      console.error('[ConfigHandler] 读取文件失败:', error)
+      return {
+        success: false,
+        error: `读取文件失败: ${error.message}`
+      }
+    }
+  })
+
+  // 写入文件的处理器
+  ipcMain.handle('write-file', async (event, filePath, content) => {
+    try {
+      // 如果content是字符串，尝试解析为JSON对象
+      let dataToWrite = content
+      if (typeof content === 'string') {
+        try {
+          dataToWrite = JSON.parse(content)
+        } catch (parseError) {
+          // 如果不是有效的JSON字符串，直接写入原字符串
+          await writeFile(filePath, content, 'utf-8')
+          return {
+            success: true
+          }
+        }
+      }
+      
+      // 使用writeJsonFile写入JSON数据
+      const result = await writeJsonFile(filePath, dataToWrite)
+      return result
+    } catch (error) {
+      console.error('[ConfigHandler] 写入文件失败:', error)
+      return {
+        success: false,
+        error: `写入文件失败: ${error.message}`
+      }
+    }
+  })
+
   console.log('[ConfigHandler] 配置处理器注册完成')
 }
 
@@ -335,11 +437,16 @@ export function unregisterConfigHandlers() {
   ipcMain.removeHandler('read-settings')
   ipcMain.removeHandler('get-config-paths')
   ipcMain.removeHandler('open-config-folder')
+  ipcMain.removeHandler('open-claude-config-folder')
   ipcMain.removeHandler('save-settings')
   ipcMain.removeHandler('exec-command')
   ipcMain.removeHandler('add-provider')
   ipcMain.removeHandler('update-provider')
   ipcMain.removeHandler('delete-provider')
   ipcMain.removeHandler('update-default-model')
+  ipcMain.removeHandler('get-home-dir')
+  ipcMain.removeHandler('get-claude-settings-path')
+  ipcMain.removeHandler('read-file')
+  ipcMain.removeHandler('write-file')
   console.log('[ConfigHandler] 配置处理器注销完成')
 }

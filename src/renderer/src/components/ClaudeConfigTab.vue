@@ -2,24 +2,6 @@
   <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
     <h2 class="text-xl font-semibold text-gray-900 mb-6">Claude 配置</h2>
     
-    <!-- 代理切换按钮 -->
-    <div class="mb-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-lg font-medium text-gray-900">代理设置</h3>
-          <p class="text-sm text-gray-500 mt-1">
-            选择是否通过代理访问 Claude API
-          </p>
-        </div>
-        <el-switch
-          v-model="useProxy"
-          active-text="使用代理"
-          inactive-text="直连"
-          @change="handleProxyChange"
-        />
-      </div>
-    </div>
-    
     <!-- 加载状态 -->
     <div v-if="loading" class="flex justify-center items-center py-10">
       <div class="text-center">
@@ -157,7 +139,6 @@ import { ElMessage, ElSwitch } from 'element-plus'
 
 // 响应式数据
 const loading = ref(false)
-const useProxy = ref(false)
 const disableNonEssentialTraffic = ref(false)
 
 const claudeConfig = reactive({
@@ -178,19 +159,6 @@ const claudeConfig = reactive({
 const allowPermissions = ref('')
 // 计算属性：拒绝的权限字符串
 const denyPermissions = ref('')
-
-// 处理代理切换
-const handleProxyChange = (value) => {
-  ElMessage.info(`已切换到${value ? '代理模式' : '直连模式'}`)
-  // 这里可以根据需要更新API基础地址
-  if (value) {
-    // 使用代理地址
-    claudeConfig.env.ANTHROPIC_BASE_URL = 'https://sg.instcopilot-api.com'
-  } else {
-    // 使用直连地址
-    claudeConfig.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
-  }
-}
 
 // 加载配置
 const loadConfig = async () => {
@@ -217,9 +185,6 @@ const loadConfig = async () => {
       if (config.apiKeyHelper) {
         claudeConfig.apiKeyHelper = config.apiKeyHelper
       }
-      
-      // 设置代理开关状态
-      useProxy.value = config.env?.ANTHROPIC_BASE_URL?.includes('instcopilot-api.com') || false
       
       // 设置禁用非必要流量开关状态
       disableNonEssentialTraffic.value = config.env?.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === '1'
@@ -284,7 +249,6 @@ const resetConfig = () => {
   claudeConfig.apiKeyHelper = ''
   allowPermissions.value = ''
   denyPermissions.value = ''
-  useProxy.value = false
   ElMessage.info('配置已重置')
 }
 

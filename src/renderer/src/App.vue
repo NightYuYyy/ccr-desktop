@@ -415,15 +415,18 @@ const handleGlobalProxyChange = (value) => {
               />
             </div>
             
-            <el-button v-if="activeTab === 'config'" type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
-              添加服务商
-            </el-button>
-            <el-button v-if="activeTab === 'config'" type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
-              {{ isLoading ? '加载中...' : '刷新配置' }}
-            </el-button>
-            <el-button type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
-              打开配置文件夹
-            </el-button>
+            <!-- 仅在启动服务tab时只显示网络模式，其他tab显示对应按钮 -->
+            <template v-if="activeTab !== 'service'">
+              <el-button v-if="activeTab === 'config'" type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
+                添加服务商
+              </el-button>
+              <el-button v-if="activeTab === 'config'" type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
+                {{ isLoading ? '加载中...' : '刷新配置' }}
+              </el-button>
+              <el-button type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
+                打开配置文件夹
+              </el-button>
+            </template>
           </div>
         </div>
 

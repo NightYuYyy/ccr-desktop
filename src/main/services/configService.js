@@ -352,4 +352,122 @@ export async function updateDefaultModel(defaultModel) {
   }
 }
 
+/**
+ * 更新路由器模型配置
+ * @param {string} modelType - 模型类型 (default, background, think, longContext)
+ * @param {string} modelValue - 模型值 (格式: "providerName,modelName")
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function updateRouterModel(modelType, modelValue) {
+  try {
+    // 验证模型类型
+    const validModelTypes = ['default', 'background', 'think', 'longContext']
+    if (!validModelTypes.includes(modelType)) {
+      return {
+        success: false,
+        error: `无效的模型类型: ${modelType}`
+      }
+    }
+
+    // 验证格式
+    if (modelValue && !modelValue.includes(',')) {
+      return {
+        success: false,
+        error: '模型格式错误，应为 "providerName,modelName"'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 如果提供了模型，验证其存在性
+    if (modelValue) {
+      const [providerName, modelName] = modelValue.split(',')
+      const provider = config.Providers?.find(p => p.name === providerName)
+
+      if (!provider) {
+        return {
+          success: false,
+          error: `找不到Provider: ${providerName}`
+        }
+      }
+
+      if (!provider.models || !provider.models.includes(modelName)) {
+        return {
+          success: false,
+          error: `Provider "${providerName}" 中找不到模型: ${modelName}`
+        }
+      }
+    }
+
+    // 初始化Router配置
+    if (!config.Router) {
+      config.Router = {}
+    }
+
+    // 更新指定模型
+    config.Router[modelType] = modelValue || ''
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `更新${modelType}模型失败: ${error.message}`
+    }
+  }
+}
+
+/**
+ * 更新长文本阈值配置
+ * @param {number} threshold - 阈值
+ * @returns {Promise<{success: boolean, error?: string}>} 操作结果
+ */
+export async function updateLongContextThreshold(threshold) {
+  try {
+    // 验证阈值
+    if (typeof threshold !== 'number' || threshold < 0) {
+      return {
+        success: false,
+        error: '阈值必须是非负数'
+      }
+    }
+
+    // 读取现有配置
+    const readResult = await readClaudeCodeRouterSettings()
+    if (!readResult.success) {
+      return {
+        success: false,
+        error: `读取配置失败: ${readResult.error}`
+      }
+    }
+
+    const config = readResult.data
+
+    // 初始化Router配置
+    if (!config.Router) {
+      config.Router = {}
+    }
+
+    // 更新长文本阈值
+    config.Router.longContextThreshold = threshold
+
+    // 保存配置
+    return await saveClaudeCodeRouterSettings(config)
+  } catch (error) {
+    return {
+      success: false,
+      error: `更新长文本阈值失败: ${error.message}`
+    }
+  }
+}
+
 

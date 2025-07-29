@@ -1,7 +1,5 @@
 import { ipcMain, shell } from 'electron'
 import { spawn } from 'child_process'
-import { join, dirname } from 'path'
-import { writeFile } from 'fs/promises'
 import {
   readClaudeCodeRouterSettings,
   getConfigPaths,
@@ -9,10 +7,13 @@ import {
   addProvider,
   updateProvider,
   deleteProvider,
-  updateDefaultModel
+  updateDefaultModel,
+  updateRouterModel,
+  updateLongContextThreshold
 } from '../services/configService.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
-import { getUserHomeDir, getClaudeSettingsPath, getClaudeConfigDir } from '../utils/pathUtils.js'
+import { writeFile } from 'fs/promises'
+import { getUserHomeDir, getClaudeSettingsPath, getClaudeConfigDir, getDirectConfigPath } from '../utils/pathUtils.js'
 
 /**
  * 注册配置相关的IPC处理器
@@ -120,7 +121,7 @@ export function registerConfigHandlers() {
       if (result.success) {
         console.log('[ConfigHandler] 配置文件保存成功:', result.configPath)
 
-        // {{ AURA-X: Add - 配置保存成功后刷新悬浮窗. Approval: 寸止确认. }}
+        // 配置保存成功后刷新悬浮窗
         setImmediate(() => {
           ipcMain.emit('refresh-floating-window')
         })
@@ -194,9 +195,11 @@ export function registerConfigHandlers() {
         })
       })
 
-            // 监听进程结束
+      // 监听进程结束
       child.on('close', (code) => {
-        clearTimeout(serviceCheckTimeout)
+        if (serviceCheckTimeout) {
+          clearTimeout(serviceCheckTimeout)
+        }
         console.log('[ConfigHandler] 命令执行完成，退出码:', code)
 
         resolve({
@@ -211,7 +214,9 @@ export function registerConfigHandlers() {
 
       // 监听错误事件
       child.on('error', (error) => {
-        clearTimeout(serviceCheckTimeout)
+        if (serviceCheckTimeout) {
+          clearTimeout(serviceCheckTimeout)
+        }
         console.error('[ConfigHandler] 命令执行失败:', error)
         resolve({
           success: false,
@@ -222,8 +227,8 @@ export function registerConfigHandlers() {
         })
       })
 
-            // 对于服务类命令，等待3秒后如果进程仍在运行且有输出，则认为启动成功
-      const serviceCheckTimeout = setTimeout(() => {
+      // 对于服务类命令，等待3秒后如果进程仍在运行且有输出，则认为启动成功
+      let serviceCheckTimeout = setTimeout(() => {
         if (child.exitCode === null && !child.killed) {
           // 进程仍在运行，认为服务启动成功
           console.log('[ConfigHandler] 服务启动成功，进程持续运行中')
@@ -328,7 +333,7 @@ export function registerConfigHandlers() {
       if (result.success) {
         console.log('[ConfigHandler] 默认模型更新成功')
 
-        // {{ AURA-X: Add - 默认模型更新成功后刷新悬浮窗. Approval: 寸止确认. }}
+        // 默认模型更新成功后刷新悬浮窗
         setImmediate(() => {
           ipcMain.emit('refresh-floating-window')
         })
@@ -343,6 +348,70 @@ export function registerConfigHandlers() {
       }
     } catch (error) {
       console.error('[ConfigHandler] 处理更新默认模型请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 更新路由器模型的处理器
+  ipcMain.handle('update-router-model', async (event, modelType, modelValue) => {
+    try {
+      console.log(`[ConfigHandler] 更新${modelType}模型:`, modelValue)
+
+      const result = await updateRouterModel(modelType, modelValue)
+
+      if (result.success) {
+        console.log(`[ConfigHandler] ${modelType}模型更新成功`)
+
+        // 模型更新成功后刷新悬浮窗
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
+        return {
+          success: true,
+          message: `${modelType}模型更新成功`
+        }
+      } else {
+        console.warn(`[ConfigHandler] ${modelType}模型更新失败:`, result.error)
+        return result
+      }
+    } catch (error) {
+      console.error(`[ConfigHandler] 处理更新${modelType}模型请求时发生错误:`, error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 更新长文本阈值的处理器
+  ipcMain.handle('update-long-context-threshold', async (event, threshold) => {
+    try {
+      console.log('[ConfigHandler] 更新长文本阈值:', threshold)
+
+      const result = await updateLongContextThreshold(threshold)
+
+      if (result.success) {
+        console.log('[ConfigHandler] 长文本阈值更新成功')
+
+        // 阈值更新成功后刷新悬浮窗
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
+        return {
+          success: true,
+          message: '长文本阈值更新成功'
+        }
+      } else {
+        console.warn('[ConfigHandler] 长文本阈值更新失败:', result.error)
+        return result
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理更新长文本阈值请求时发生错误:', error)
       return {
         success: false,
         error: `处理请求时发生错误: ${error.message}`
@@ -406,15 +475,22 @@ export function registerConfigHandlers() {
       if (typeof content === 'string') {
         try {
           dataToWrite = JSON.parse(content)
-        } catch (parseError) {
+        } catch {
           // 如果不是有效的JSON字符串，直接写入原字符串
-          await writeFile(filePath, content, 'utf-8')
-          return {
-            success: true
+          try {
+            await writeFile(filePath, content, 'utf-8')
+            return {
+              success: true
+            }
+          } catch (writeError) {
+            return {
+              success: false,
+              error: `写入文件失败: ${writeError.message}`
+            }
           }
         }
       }
-      
+
       // 使用writeJsonFile写入JSON数据
       const result = await writeJsonFile(filePath, dataToWrite)
       return result
@@ -423,6 +499,199 @@ export function registerConfigHandlers() {
       return {
         success: false,
         error: `写入文件失败: ${error.message}`
+      }
+    }
+  })
+
+  // 检测网络模式的处理器
+  ipcMain.handle('detect-network-mode', async () => {
+    try {
+      console.log('[ConfigHandler] 开始检测网络模式')
+      
+      const configPath = getClaudeSettingsPath()
+      const result = await readJsonFile(configPath)
+      
+      if (result.success && result.data && result.data.env) {
+        const baseUrl = result.data.env.ANTHROPIC_BASE_URL
+        console.log('[ConfigHandler] 读取到 ANTHROPIC_BASE_URL:', baseUrl)
+        
+        // CCR服务地址
+        const CCR_SERVICE_URL = 'http://127.0.0.1:3456'
+        
+        // 判断是否使用CCR服务
+        const isUsingCCR = baseUrl === CCR_SERVICE_URL
+        console.log('[ConfigHandler] 网络模式检测结果:', isUsingCCR ? '代理' : '直连')
+        
+        return {
+          success: true,
+          isProxy: isUsingCCR,
+          mode: isUsingCCR ? 'proxy' : 'direct',
+          message: isUsingCCR ? '检测到CCR服务，使用代理模式' : '未检测到CCR服务，使用直连模式'
+        }
+      } else {
+        console.log('[ConfigHandler] 配置文件读取失败或无env配置，默认使用直连模式')
+        return {
+          success: true,
+          isProxy: false,
+          mode: 'direct',
+          message: '配置文件读取失败，默认使用直连模式'
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 检测网络模式失败:', error)
+      return {
+        success: false,
+        error: `检测网络模式失败: ${error.message}`,
+        isProxy: false,
+        mode: 'direct'
+      }
+    }
+  })
+
+  // === 直连配置相关处理器 ===
+  
+  // 获取直连配置文件路径
+  ipcMain.handle('get-direct-config-path', async () => {
+    try {
+      const configPath = getDirectConfigPath()
+      return {
+        success: true,
+        data: configPath
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 获取直连配置文件路径失败:', error)
+      return {
+        success: false,
+        error: `获取直连配置文件路径失败: ${error.message}`
+      }
+    }
+  })
+
+  // 读取直连配置文件
+  ipcMain.handle('read-direct-config', async () => {
+    try {
+      console.log('[ConfigHandler] 开始读取直连配置文件')
+      
+      const configPath = getDirectConfigPath()
+      const result = await readJsonFile(configPath)
+      
+      if (result.success) {
+        console.log('[ConfigHandler] 直连配置文件读取成功')
+        return {
+          success: true,
+          data: result.data,
+          configPath
+        }
+      } else {
+        // 如果配置文件不存在，返回默认配置
+        if (result.error?.includes('配置文件不存在')) {
+          const defaultConfig = {
+            version: '1.0',
+            directConfigs: [],
+            settings: {
+              autoApplyDefault: true
+            }
+          }
+          
+          console.log('[ConfigHandler] 直连配置文件不存在，返回默认配置')
+          return {
+            success: true,
+            data: defaultConfig,
+            configPath,
+            isDefault: true
+          }
+        }
+        
+        return {
+          success: false,
+          error: result.error,
+          configPath
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理直连配置读取请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 保存直连配置文件
+  ipcMain.handle('save-direct-config', async (event, configData) => {
+    try {
+      console.log('[ConfigHandler] 开始保存直连配置文件')
+      
+      const configPath = getDirectConfigPath()
+      const result = await writeJsonFile(configPath, configData)
+      
+      if (result.success) {
+        console.log('[ConfigHandler] 直连配置文件保存成功:', configPath)
+        return {
+          success: true,
+          message: '直连配置已保存',
+          configPath
+        }
+      } else {
+        console.warn('[ConfigHandler] 直连配置文件保存失败:', result.error)
+        return {
+          success: false,
+          error: result.error,
+          configPath
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 处理直连配置保存请求时发生错误:', error)
+      return {
+        success: false,
+        error: `处理请求时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 应用直连配置到Claude settings.json
+  ipcMain.handle('apply-direct-config', async (event, directConfig) => {
+    try {
+      console.log('[ConfigHandler] 开始应用直连配置到Claude settings.json')
+      
+      const settingsPath = getClaudeSettingsPath()
+      
+      // 读取现有的settings.json
+      const readResult = await readJsonFile(settingsPath)
+      let settings = {}
+      
+      if (readResult.success) {
+        settings = readResult.data
+      }
+      
+      // 更新settings中的环境变量
+      if (!settings.env) {
+        settings.env = {}
+      }
+      
+      settings.env.ANTHROPIC_API_KEY = directConfig.apiKey
+      settings.env.ANTHROPIC_BASE_URL = directConfig.baseUrl
+      
+      // 保存更新后的settings.json
+      const writeResult = await writeJsonFile(settingsPath, settings)
+      
+      if (writeResult.success) {
+        console.log('[ConfigHandler] 直连配置应用成功')
+        return {
+          success: true,
+          message: `直连配置 "${directConfig.name}" 已应用到Claude`
+        }
+      } else {
+        return {
+          success: false,
+          error: `应用配置失败: ${writeResult.error}`
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 应用直连配置时发生错误:', error)
+      return {
+        success: false,
+        error: `应用配置时发生错误: ${error.message}`
       }
     }
   })
@@ -444,9 +713,17 @@ export function unregisterConfigHandlers() {
   ipcMain.removeHandler('update-provider')
   ipcMain.removeHandler('delete-provider')
   ipcMain.removeHandler('update-default-model')
+  ipcMain.removeHandler('update-router-model')
+  ipcMain.removeHandler('update-long-context-threshold')
   ipcMain.removeHandler('get-home-dir')
   ipcMain.removeHandler('get-claude-settings-path')
   ipcMain.removeHandler('read-file')
   ipcMain.removeHandler('write-file')
+  ipcMain.removeHandler('detect-network-mode')
+  // 直连配置相关处理器
+  ipcMain.removeHandler('get-direct-config-path')
+  ipcMain.removeHandler('read-direct-config')
+  ipcMain.removeHandler('save-direct-config')
+  ipcMain.removeHandler('apply-direct-config')
   console.log('[ConfigHandler] 配置处理器注销完成')
 }

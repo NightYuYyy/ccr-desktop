@@ -36,6 +36,7 @@ export async function isFileReadable(filePath) {
  * @returns {Promise&lt;{success: boolean, data?: any, error?: string}&gt;} 读取结果
  */
 export async function readJsonFile(filePath) {
+  console.log('filePath', filePath)
   try {
     // 检查文件是否存在
     if (!existsSync(filePath)) {

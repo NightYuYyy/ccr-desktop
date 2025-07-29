@@ -42,6 +42,14 @@ export function getClaudeSettingsPath() {
 }
 
 /**
+ * 获取直连配置文件路径 (config.json)
+ * @returns {string} 直连配置文件的绝对路径
+ */
+export function getDirectConfigPath() {
+  return join(getClaudeConfigDir(), 'config.json')
+}
+
+/**
  * 规范化文件路径（处理相对路径和特殊字符）
  * @param {string} filePath - 原始文件路径
  * @returns {string} 规范化后的绝对路径

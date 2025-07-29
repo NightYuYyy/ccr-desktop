@@ -39,13 +39,6 @@
       <!-- 统计信息 -->
       <StatisticsCards :providers="configData.Providers" />
 
-      <!-- 默认模型选择 -->
-      <DefaultModelSelector
-        :providers="configData.Providers"
-        :current-default="configData.Router?.default || ''"
-        @save="$emit('save-default-model', $event)"
-      />
-
       <!-- Provider 卡片网格 -->
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         <ProviderCard
@@ -62,7 +55,6 @@
 
 <script setup>
 import StatisticsCards from './StatisticsCards.vue'
-import DefaultModelSelector from './DefaultModelSelector.vue'
 import ProviderCard from './ProviderCard.vue'
 
 // 组件属性
@@ -78,5 +70,5 @@ defineProps({
 })
 
 // 组件事件
-defineEmits(['refresh', 'save-default-model', 'provider-click'])
+defineEmits(['refresh', 'provider-click'])
 </script>

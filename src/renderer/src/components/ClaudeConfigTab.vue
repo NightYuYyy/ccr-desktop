@@ -1,7 +1,12 @@
 <template>
   <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <h2 class="text-xl font-semibold text-gray-900 mb-6">Claude 配置</h2>
-    
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-semibold text-gray-900">直连配置管理</h2>
+      <el-button type="primary" @click="showAddConfigDialog" :loading="loading">
+        添加配置
+      </el-button>
+    </div>
+
     <!-- 加载状态 -->
     <div v-if="loading" class="flex justify-center items-center py-10">
       <div class="text-center">
@@ -9,267 +14,420 @@
         <p class="text-gray-600">正在加载配置...</p>
       </div>
     </div>
-    
-    <!-- 配置内容 -->
-    <div v-else class="space-y-6">
-      <!-- API Key 配置 -->
-      <div class="border-b border-gray-200 pb-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">API 密钥</h3>
-        <div class="max-w-2xl">
-          <el-input
-            v-model="claudeConfig.env.ANTHROPIC_API_KEY"
-            type="password"
-            placeholder="请输入 Claude API Key"
-            show-password
-            class="mb-2"
-          />
-          <p class="text-sm text-gray-500 mt-1">
-            输入您的 Claude API Key 以启用 Claude 服务
-          </p>
+
+    <!-- 配置列表 -->
+    <div v-else>
+      <!-- 空状态 -->
+      <div v-if="directConfigs.length === 0" class="text-center py-12">
+        <div class="text-gray-400 mb-4">
+          <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
         </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">暂无直连配置</h3>
+        <p class="text-gray-500 mb-4">创建第一个直连配置来开始使用</p>
+        <el-button type="primary" @click="showAddConfigDialog">添加配置</el-button>
       </div>
-      
-      <!-- API Base URL 配置 -->
-      <div class="border-b border-gray-200 pb-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">API 基础地址</h3>
-        <div class="max-w-2xl">
-          <el-input
-            v-model="claudeConfig.env.ANTHROPIC_BASE_URL"
-            placeholder="请输入 Claude API 基础地址"
-            class="mb-2"
-          />
-          <p class="text-sm text-gray-500 mt-1">
-            输入 Claude API 的基础地址
-          </p>
-        </div>
-      </div>
-      
-      <!-- 模型配置 -->
-      <div class="border-b border-gray-200 pb-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">模型设置</h3>
-        <div class="max-w-2xl space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">最大输出 Token 数</label>
-            <el-input
-              v-model="claudeConfig.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS"
-              placeholder="请输入最大输出 Token 数"
-              class="mb-2"
-            />
-            <p class="text-sm text-gray-500 mt-1">
-              设置 Claude 响应的最大 Token 数量
-            </p>
+
+      <!-- 配置卡片网格 -->
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="config in directConfigs" :key="config.id" 
+             class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+          <!-- 配置头部 -->
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <h3 class="font-medium text-gray-900">{{ config.name }}</h3>
+                <el-tag v-if="config.isDefault" type="success" size="small">默认</el-tag>
+              </div>
+              <p class="text-sm text-gray-500 mt-1 break-all">{{ config.baseUrl }}</p>
+            </div>
+            <el-dropdown @command="(cmd) => handleConfigAction(cmd, config)">
+              <el-button type="text" size="small">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                  <el-dropdown-item command="setDefault" :disabled="config.isDefault">设为默认</el-dropdown-item>
+                  <el-dropdown-item command="apply">应用到Claude</el-dropdown-item>
+                  <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">禁用非必要流量</label>
-            <el-switch
-              v-model="disableNonEssentialTraffic"
-              active-text="启用"
-              inactive-text="禁用"
-            />
-            <p class="text-sm text-gray-500 mt-1">
-              禁用非必要的网络流量以提高性能
-            </p>
+
+          <!-- API Key显示 -->
+          <div class="mb-3">
+            <label class="block text-xs text-gray-500 mb-1">API Key</label>
+            <div class="flex items-center gap-2">
+              <code class="text-xs bg-gray-100 px-2 py-1 rounded flex-1 truncate">
+                {{ showApiKey[config.id] ? config.apiKey : maskApiKey(config.apiKey) }}
+              </code>
+              <el-button type="text" size="small" @click="toggleApiKeyVisibility(config.id)">
+                <svg v-if="showApiKey[config.id]" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </el-button>
+            </div>
           </div>
-        </div>
-      </div>
-      
-      <!-- 权限配置 -->
-      <div class="border-b border-gray-200 pb-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">权限设置</h3>
-        <div class="max-w-2xl space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">允许的权限</label>
-            <el-input
-              v-model="allowPermissions"
-              placeholder="请输入允许的权限，多个权限用逗号分隔"
-              class="mb-2"
-            />
-            <p class="text-sm text-gray-500 mt-1">
-              设置允许的权限列表
-            </p>
+
+          <!-- 创建时间 -->
+          <div class="text-xs text-gray-400">
+            创建于 {{ formatDate(config.createdAt) }}
           </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">拒绝的权限</label>
-            <el-input
-              v-model="denyPermissions"
-              placeholder="请输入拒绝的权限，多个权限用逗号分隔"
-              class="mb-2"
-            />
-            <p class="text-sm text-gray-500 mt-1">
-              设置拒绝的权限列表
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- API Key Helper -->
-      <div class="border-b border-gray-200 pb-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">API Key Helper</h3>
-        <div class="max-w-2xl">
-          <el-input
-            v-model="claudeConfig.apiKeyHelper"
-            placeholder="请输入 API Key Helper 命令"
-            class="mb-2"
-          />
-          <p class="text-sm text-gray-500 mt-1">
-            设置 API Key Helper 命令
-          </p>
-        </div>
-      </div>
-      
-      <!-- 操作按钮 -->
-      <div class="flex justify-between items-center">
-        <el-button type="info" @click="openConfigFolder">
-          打开配置文件夹
-        </el-button>
-        <div class="flex space-x-3">
-          <el-button @click="resetConfig">重置</el-button>
-          <el-button type="primary" @click="saveConfig">保存配置</el-button>
         </div>
       </div>
     </div>
+
+    <!-- 添加/编辑配置弹窗 -->
+    <el-dialog
+      v-model="showConfigDialog"
+      :title="editingConfig ? '编辑配置' : '添加配置'"
+      width="500px"
+      @closed="resetConfigForm"
+    >
+      <el-form :model="configForm" :rules="configRules" ref="configFormRef" label-width="80px">
+        <el-form-item label="配置名称" prop="name">
+          <el-input v-model="configForm.name" placeholder="请输入配置名称" />
+        </el-form-item>
+        
+        <el-form-item label="API Key" prop="apiKey">
+          <el-input 
+            v-model="configForm.apiKey" 
+            type="password" 
+            placeholder="请输入API Key" 
+            show-password
+          />
+        </el-form-item>
+        
+        <el-form-item label="Base URL" prop="baseUrl">
+          <el-input v-model="configForm.baseUrl" placeholder="请输入API基础地址" />
+        </el-form-item>
+        
+        <el-form-item>
+          <el-checkbox v-model="configForm.isDefault">设为默认配置</el-checkbox>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <el-button @click="showConfigDialog = false">取消</el-button>
+          <el-button type="primary" @click="saveConfig" :loading="saving">
+            {{ editingConfig ? '更新' : '添加' }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElSwitch } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+// 简单的ID生成函数
+const generateId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2)
+}
 
 // 响应式数据
 const loading = ref(false)
-const disableNonEssentialTraffic = ref(false)
+const saving = ref(false)
+const directConfigs = ref([])
+const showConfigDialog = ref(false)
+const editingConfig = ref(null)
+const showApiKey = reactive({})
 
-const claudeConfig = reactive({
-  env: {
-    ANTHROPIC_API_KEY: '',
-    ANTHROPIC_BASE_URL: '',
-    CLAUDE_CODE_MAX_OUTPUT_TOKENS: '',
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ''
-  },
-  permissions: {
-    allow: [],
-    deny: []
-  },
-  apiKeyHelper: ''
+// 配置表单
+const configForm = reactive({
+  name: '',
+  apiKey: '',
+  baseUrl: 'https://api.anthropic.com',
+  isDefault: false
 })
 
-// 计算属性：允许的权限字符串
-const allowPermissions = ref('')
-// 计算属性：拒绝的权限字符串
-const denyPermissions = ref('')
+// 表单验证规则
+const configRules = {
+  name: [
+    { required: true, message: '请输入配置名称', trigger: 'blur' }
+  ],
+  apiKey: [
+    { required: true, message: '请输入API Key', trigger: 'blur' }
+  ],
+  baseUrl: [
+    { required: true, message: '请输入API基础地址', trigger: 'blur' },
+    { type: 'url', message: '请输入正确的URL格式', trigger: 'blur' }
+  ]
+}
 
-// 加载配置
-const loadConfig = async () => {
+const configFormRef = ref()
+
+// 加载直连配置
+const loadDirectConfig = async () => {
   loading.value = true
   try {
-    // 获取Claude配置文件路径
-    const configPath = await window.api.getClaudeSettingsPath()
-    
-    // 读取配置文件
-    const result = await window.api.readFile(configPath)
+    const result = await window.api.readDirectConfig()
     
     if (result.success) {
-      const config = JSON.parse(result.data)
+      directConfigs.value = result.data.directConfigs || []
       
-      // 更新配置数据
-      if (config.env) {
-        claudeConfig.env = { ...claudeConfig.env, ...config.env }
+      if (result.isDefault) {
+        ElMessage.info('使用默认配置，暂无保存的直连配置')
+      } else {
+        ElMessage.success('直连配置加载成功')
       }
-      
-      if (config.permissions) {
-        claudeConfig.permissions = { ...claudeConfig.permissions, ...config.permissions }
-      }
-      
-      if (config.apiKeyHelper) {
-        claudeConfig.apiKeyHelper = config.apiKeyHelper
-      }
-      
-      // 设置禁用非必要流量开关状态
-      disableNonEssentialTraffic.value = config.env?.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === '1'
-      
-      // 设置权限字符串
-      allowPermissions.value = config.permissions?.allow?.join(', ') || ''
-      denyPermissions.value = config.permissions?.deny?.join(', ') || ''
-      
-      ElMessage.success('配置加载成功')
     } else {
-      // 配置文件不存在或读取失败，使用默认配置
-      ElMessage.info('使用默认配置')
+      ElMessage.error(`加载配置失败: ${result.error}`)
+      directConfigs.value = []
     }
   } catch (error) {
-    ElMessage.error(`加载配置失败: ${error.message}`)
-    console.error('加载配置失败:', error)
+    ElMessage.error(`加载配置异常: ${error.message}`)
+    console.error('加载直连配置异常:', error)
   } finally {
     loading.value = false
   }
 }
 
-// 保存配置
-const saveConfig = async () => {
+// 保存直连配置
+const saveDirectConfig = async () => {
   try {
-    // 获取Claude配置文件路径
-    const configPath = await window.api.getClaudeSettingsPath()
-    
-    // 准备要保存的配置数据
-    const configToSave = {
-      env: {
-        ...claudeConfig.env,
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: disableNonEssentialTraffic.value ? '1' : '0'
-      },
-      permissions: {
-        allow: allowPermissions.value.split(',').map(item => item.trim()).filter(item => item),
-        deny: denyPermissions.value.split(',').map(item => item.trim()).filter(item => item)
-      },
-      apiKeyHelper: claudeConfig.apiKeyHelper
+    // 深度克隆以确保所有数据都是可序列化的
+    const configData = {
+      version: '1.0',
+      directConfigs: JSON.parse(JSON.stringify(directConfigs.value)),
+      settings: {
+        autoApplyDefault: true
+      }
     }
     
-    // 写入配置文件
-    const result = await window.api.writeFile(configPath, JSON.stringify(configToSave, null, 2))
+    const result = await window.api.saveDirectConfig(configData)
     
     if (result.success) {
-      ElMessage.success('配置已保存')
+      return true
     } else {
-      ElMessage.error(`保存失败: ${result.error}`)
+      ElMessage.error(`保存配置失败: ${result.error}`)
+      return false
     }
   } catch (error) {
     ElMessage.error(`保存配置异常: ${error.message}`)
-    console.error('保存配置异常:', error)
+    console.error('保存直连配置异常:', error)
+    return false
   }
 }
 
-// 重置配置
-const resetConfig = () => {
-  claudeConfig.env.ANTHROPIC_API_KEY = ''
-  claudeConfig.env.ANTHROPIC_BASE_URL = ''
-  claudeConfig.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = ''
-  claudeConfig.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = ''
-  disableNonEssentialTraffic.value = false
-  claudeConfig.apiKeyHelper = ''
-  allowPermissions.value = ''
-  denyPermissions.value = ''
-  ElMessage.info('配置已重置')
+// 显示添加配置弹窗
+const showAddConfigDialog = () => {
+  editingConfig.value = null
+  resetConfigForm()
+  showConfigDialog.value = true
 }
 
-// 打开配置文件夹
-const openConfigFolder = async () => {
+// 重置配置表单
+const resetConfigForm = () => {
+  configForm.name = ''
+  configForm.apiKey = ''
+  configForm.baseUrl = 'https://api.anthropic.com'
+  configForm.isDefault = false
+  
+  if (configFormRef.value) {
+    configFormRef.value.resetFields()
+  }
+}
+
+// 保存配置
+const saveConfig = async () => {
+  if (!configFormRef.value) return
+  
   try {
-    const result = await window.api.openClaudeConfigFolder()
-    if (result.success) {
-      ElMessage.success('Claude配置文件夹已打开')
+    await configFormRef.value.validate()
+  } catch {
+    return
+  }
+  
+  saving.value = true
+  
+  try {
+    const now = new Date().toISOString()
+    
+    if (editingConfig.value) {
+      // 编辑现有配置
+      const index = directConfigs.value.findIndex(c => c.id === editingConfig.value.id)
+      if (index > -1) {
+        directConfigs.value[index] = {
+          ...directConfigs.value[index],
+          name: configForm.name,
+          apiKey: configForm.apiKey,
+          baseUrl: configForm.baseUrl,
+          isDefault: configForm.isDefault
+        }
+      }
     } else {
-      ElMessage.error(`打开Claude配置文件夹失败: ${result.error}`)
+      // 添加新配置
+      const newConfig = {
+        id: generateId(),
+        name: configForm.name,
+        apiKey: configForm.apiKey,
+        baseUrl: configForm.baseUrl,
+        isDefault: configForm.isDefault,
+        createdAt: now
+      }
+      
+      directConfigs.value.push(newConfig)
+    }
+    
+    // 如果设置为默认，清除其他默认配置
+    if (configForm.isDefault) {
+      directConfigs.value.forEach(config => {
+        if (config.id !== (editingConfig.value?.id || directConfigs.value[directConfigs.value.length - 1].id)) {
+          config.isDefault = false
+        }
+      })
+    }
+    
+    // 保存到文件
+    const success = await saveDirectConfig()
+    if (success) {
+      ElMessage.success(editingConfig.value ? '配置更新成功' : '配置添加成功')
+      showConfigDialog.value = false
     }
   } catch (error) {
-    ElMessage.error(`打开Claude配置文件夹异常: ${error.message}`)
-    console.error('打开Claude配置文件夹异常:', error)
+    ElMessage.error(`操作失败: ${error.message}`)
+    console.error('保存配置异常:', error)
+  } finally {
+    saving.value = false
   }
+}
+
+// 处理配置操作
+const handleConfigAction = async (command, config) => {
+  switch (command) {
+    case 'edit':
+      editConfig(config)
+      break
+    case 'setDefault':
+      await setDefaultConfig(config)
+      break
+    case 'apply':
+      await applyConfig(config)
+      break
+    case 'delete':
+      await deleteConfig(config)
+      break
+  }
+}
+
+// 编辑配置
+const editConfig = (config) => {
+  editingConfig.value = config
+  configForm.name = config.name
+  configForm.apiKey = config.apiKey
+  configForm.baseUrl = config.baseUrl
+  configForm.isDefault = config.isDefault
+  showConfigDialog.value = true
+}
+
+// 设置默认配置
+const setDefaultConfig = async (config) => {
+  try {
+    // 清除所有默认标记
+    directConfigs.value.forEach(c => c.isDefault = false)
+    // 设置当前配置为默认
+    config.isDefault = true
+    
+    const success = await saveDirectConfig()
+    if (success) {
+      ElMessage.success(`已将 "${config.name}" 设为默认配置`)
+    }
+  } catch (error) {
+    ElMessage.error(`设置默认配置失败: ${error.message}`)
+    console.error('设置默认配置异常:', error)
+  }
+}
+
+// 应用配置到Claude
+const applyConfig = async (config) => {
+  try {
+    // 深度克隆以确保配置对象是可序列化的
+    const configToApply = JSON.parse(JSON.stringify(config))
+    const result = await window.api.applyDirectConfig(configToApply)
+    
+    if (result.success) {
+      ElMessage.success(result.message)
+      
+      // 通知父组件重新检测网络模式
+      window.dispatchEvent(new CustomEvent('claude-config-saved'))
+    } else {
+      ElMessage.error(`应用配置失败: ${result.error}`)
+    }
+  } catch (error) {
+    ElMessage.error(`应用配置异常: ${error.message}`)
+    console.error('应用配置异常:', error)
+  }
+}
+
+// 删除配置
+const deleteConfig = async (config) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除配置 "${config.name}" 吗？此操作无法撤销。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    
+    const index = directConfigs.value.findIndex(c => c.id === config.id)
+    if (index > -1) {
+      directConfigs.value.splice(index, 1)
+      
+      const success = await saveDirectConfig()
+      if (success) {
+        ElMessage.success(`配置 "${config.name}" 已删除`)
+      }
+    }
+  } catch {
+    // 用户取消删除
+  }
+}
+
+// 切换API Key显示状态
+const toggleApiKeyVisibility = (configId) => {
+  showApiKey[configId] = !showApiKey[configId]
+}
+
+// 掩码API Key
+const maskApiKey = (apiKey) => {
+  if (!apiKey) return ''
+  if (apiKey.length <= 8) return '*'.repeat(apiKey.length)
+  return apiKey.slice(0, 4) + '*'.repeat(apiKey.length - 8) + apiKey.slice(-4)
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // 组件挂载时加载配置
 onMounted(() => {
-  loadConfig()
+  loadDirectConfig()
 })
 </script>
 

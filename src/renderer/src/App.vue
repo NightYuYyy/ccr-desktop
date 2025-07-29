@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ConfigTab from './components/ConfigTab.vue'
 import ServiceTab from './components/ServiceTab.vue'
 import ClaudeConfigTab from './components/ClaudeConfigTab.vue'
+import MultiModelConfig from './components/MultiModelConfig.vue'
 
 // 统一消息管理函数 - 确保同时只显示一条消息
 const showMessage = (message, type = 'info') => {
@@ -35,8 +36,12 @@ const selectedProviderTransformerText = ref('')
 
 // 自动加载配置
 onMounted(() => {
+  // 监听Claude配置保存事件
+  window.addEventListener('claude-config-saved', handleClaudeConfigSaved)
+  
   loadConfig()
   loadConfigPaths()
+  detectNetworkMode() // 自动检测网络模式
 
   // {{ AURA-X: Modify - 应用启动时触发悬浮窗刷新. Approval: 寸止确认. }}
   // 通过主进程统一更新悬浮窗状态
@@ -59,8 +64,15 @@ const checkServiceStatusAndUpdateFloatingWindow = updateFloatingWindowWithCurren
 
 // 组件卸载时清理监听器
 onUnmounted(() => {
-  // ServiceTab组件自己处理清理
+  // 清理Claude配置保存事件监听器
+  window.removeEventListener('claude-config-saved', handleClaudeConfigSaved)
 })
+
+// 处理Claude配置保存事件
+const handleClaudeConfigSaved = () => {
+  console.log('[App] 收到Claude配置保存事件，重新检测网络模式')
+  detectNetworkMode()
+}
 
 // 加载配置文件
 const loadConfig = async () => {
@@ -102,18 +114,50 @@ const loadConfigPaths = async () => {
   }
 }
 
-// 打开配置文件夹
+// 打开CCR配置文件夹
 const openConfigFolder = async () => {
   try {
     const result = await window.api.openConfigFolder()
     if (result.success) {
-      showMessage('配置文件夹已打开', 'success')
+      showMessage('CCR配置文件夹已打开', 'success')
     } else {
-      showMessage(`打开配置文件夹失败: ${result.error}`, 'error')
+      showMessage(`打开CCR配置文件夹失败: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`打开配置文件夹异常: ${error.message}`, 'error')
-    console.error('打开配置文件夹异常:', error)
+    showMessage(`打开CCR配置文件夹异常: ${error.message}`, 'error')
+    console.error('打开CCR配置文件夹异常:', error)
+  }
+}
+
+// 打开Claude配置文件夹
+const openClaudeConfigFolder = async () => {
+  try {
+    const result = await window.api.openClaudeConfigFolder()
+    if (result.success) {
+      showMessage('Claude配置文件夹已打开', 'success')
+    } else {
+      showMessage(`打开Claude配置文件夹失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`打开Claude配置文件夹异常: ${error.message}`, 'error')
+    console.error('打开Claude配置文件夹异常:', error)
+  }
+}
+
+// 检测网络模式
+const detectNetworkMode = async () => {
+  try {
+    const result = await window.api.detectNetworkMode()
+    if (result.success) {
+      useProxy.value = result.isProxy
+      console.log('[NetworkMode] 检测到网络模式:', result.mode, result.message)
+    } else {
+      console.warn('[NetworkMode] 检测失败:', result.error)
+      useProxy.value = false
+    }
+  } catch (error) {
+    console.error('[NetworkMode] 检测异常:', error)
+    useProxy.value = false
   }
 }
 
@@ -375,6 +419,91 @@ const saveDefaultModel = async (selectedModel) => {
   }
 }
 
+// 保存路由器模型配置
+const saveRouterModel = async ({ type, value }) => {
+  try {
+    // 使用细粒度API更新路由器模型
+    const result = await window.api.updateRouterModel(type, value)
+
+    if (result.success) {
+      // 更新本地缓存数据
+      if (!configData.value.Router) {
+        configData.value.Router = {}
+      }
+      configData.value.Router[type] = value
+
+      showMessage(`${type}模型已保存`, 'success')
+
+      // {{ AURA-X: Modify - 模型保存后更新悬浮窗. Approval: 寸止确认. }}
+      // 更新悬浮窗显示的模型信息和服务状态
+      updateFloatingWindowWithCurrentInfo()
+    } else {
+      showMessage(`保存失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`保存异常: ${error.message}`, 'error')
+    console.error(`保存${type}模型异常:`, error)
+  }
+}
+
+// 保存长文本阈值配置
+const saveLongContextThreshold = async (threshold) => {
+  try {
+    // 使用细粒度API更新长文本阈值
+    const result = await window.api.updateLongContextThreshold(threshold)
+
+    if (result.success) {
+      // 更新本地缓存数据
+      if (!configData.value.Router) {
+        configData.value.Router = {}
+      }
+      configData.value.Router.longContextThreshold = threshold
+
+      showMessage('长文本阈值已保存', 'success')
+
+      // {{ AURA-X: Modify - 阈值保存后更新悬浮窗. Approval: 寸止确认. }}
+      // 更新悬浮窗显示的模型信息和服务状态
+      updateFloatingWindowWithCurrentInfo()
+    } else {
+      showMessage(`保存失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`保存异常: ${error.message}`, 'error')
+    console.error('保存长文本阈值异常:', error)
+  }
+}
+
+// 保存所有路由器配置
+const saveAllRouterConfig = async (routerConfig) => {
+  try {
+    // 使用整体保存API更新路由器配置
+    // 创建完整的配置数据对象，确保使用原始数据而不是Vue ref
+    // 深度克隆以确保所有数据都是可序列化的
+    const fullConfigData = JSON.parse(JSON.stringify({
+      ...configData.value,
+      Router: routerConfig
+    }))
+    
+    const result = await window.api.saveSettings(fullConfigData)
+
+    if (result.success) {
+      // 更新本地缓存数据
+      configData.value.Router = { ...routerConfig }
+
+      showMessage('所有路由器配置已保存', 'success')
+
+      // {{ AURA-X: Modify - 配置保存后更新悬浮窗. Approval: 寸止确认. }}
+      // 更新悬浮窗显示的模型信息和服务状态
+      updateFloatingWindowWithCurrentInfo()
+    } else {
+      showMessage(`保存失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`保存异常: ${error.message}`, 'error')
+    console.error('保存所有路由器配置异常:', error)
+  }
+}
+
 // 处理服务消息
 const handleServiceMessage = ({ text, type }) => {
   showMessage(text, type)
@@ -382,7 +511,7 @@ const handleServiceMessage = ({ text, type }) => {
 
 // 处理全局代理切换
 const handleGlobalProxyChange = (value) => {
-  showMessage(`已切换到${value ? '代理模式' : '直连模式'}`, 'info')
+  showMessage(`已手动切换到${value ? '代理模式' : '直连模式'}`, 'info')
   // 这里可以根据需要添加全局代理设置逻辑
 }
 </script>
@@ -413,6 +542,9 @@ const handleGlobalProxyChange = (value) => {
                 size="small"
                 @change="handleGlobalProxyChange"
               />
+              <span class="text-xs text-gray-500" title="基于Claude配置自动检测">
+                自动检测
+              </span>
             </div>
             
             <!-- 仅在启动服务tab时只显示网络模式，其他tab显示对应按钮 -->
@@ -423,8 +555,11 @@ const handleGlobalProxyChange = (value) => {
               <el-button v-if="activeTab === 'config'" type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
                 {{ isLoading ? '加载中...' : '刷新配置' }}
               </el-button>
-              <el-button type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
-                打开配置文件夹
+              <el-button v-if="activeTab === 'config'" type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
+                打开CCR配置文件夹
+              </el-button>
+              <el-button v-if="activeTab === 'claude'" type="info" @click="openClaudeConfigFolder" class="flex-1 sm:flex-none">
+                打开Claude配置文件夹
               </el-button>
             </template>
           </div>
@@ -446,6 +581,14 @@ const handleGlobalProxyChange = (value) => {
 
       <!-- 配置管理Tab内容 -->
       <div v-if="activeTab === 'config'">
+        <MultiModelConfig
+          v-if="configData"
+          :providers="configData.Providers"
+          :router="configData.Router"
+          @save-model="saveRouterModel"
+          @save-threshold="saveLongContextThreshold"
+          @save-all="saveAllRouterConfig"
+        />
         <ConfigTab
           :config-data="configData"
           :is-loading="isLoading"

@@ -55,6 +55,14 @@ const api = {
     return ipcRenderer.invoke('update-default-model', defaultModel)
   },
 
+  async updateRouterModel(modelType, modelValue) {
+    return ipcRenderer.invoke('update-router-model', modelType, modelValue)
+  },
+
+  async updateLongContextThreshold(threshold) {
+    return ipcRenderer.invoke('update-long-context-threshold', threshold)
+  },
+
   // === Claude配置相关API ===
   async getHomeDir() {
     return ipcRenderer.invoke('get-home-dir')
@@ -82,12 +90,12 @@ const api = {
     ipcRenderer.send('close-floating-window')
   },
 
-  // {{ AURA-X: Add - 新增移动悬浮窗位置的API. Approval: 寸止确认. }}
+  // 移动悬浮窗位置的API
   moveFloatingWindow(deltaX, deltaY) {
     ipcRenderer.send('move-floating-window', deltaX, deltaY)
   },
 
-  // {{ AURA-X: Add - 新增刷新悬浮窗的API. Approval: 寸止确认. }}
+  // 刷新悬浮窗的API
   refreshFloatingWindow() {
     ipcRenderer.send('refresh-floating-window')
   },
@@ -100,6 +108,28 @@ const api = {
   // 移除悬浮窗内容更新监听器
   removeUpdateContentListener(callback) {
     ipcRenderer.removeListener('update-content', callback)
+  },
+
+  // 检测网络模式
+  async detectNetworkMode() {
+    return ipcRenderer.invoke('detect-network-mode')
+  },
+
+  // === 直连配置相关API ===
+  async getDirectConfigPath() {
+    return ipcRenderer.invoke('get-direct-config-path')
+  },
+
+  async readDirectConfig() {
+    return ipcRenderer.invoke('read-direct-config')
+  },
+
+  async saveDirectConfig(configData) {
+    return ipcRenderer.invoke('save-direct-config', configData)
+  },
+
+  async applyDirectConfig(directConfig) {
+    return ipcRenderer.invoke('apply-direct-config', directConfig)
   }
 }
 

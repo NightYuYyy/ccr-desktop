@@ -8,23 +8,20 @@ import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
  * Claude Code Router 配置模板
  */
 const DEFAULT_CONFIG_TEMPLATE = {
-  "LOG": false,
-  "OPENAI_API_KEY": "",
-  "OPENAI_BASE_URL": "",
-  "OPENAI_MODEL": "",
-  "Providers": [
+  LOG: false,
+  OPENAI_API_KEY: '',
+  OPENAI_BASE_URL: '',
+  OPENAI_MODEL: '',
+  Providers: [
     {
-      "name": "your_provider",
-      "api_base_url": "https://api.example.com",
-      "api_key": "your_api_key",
-      "models": [
-        "model1",
-        "model2"
-      ]
+      name: 'your_provider',
+      api_base_url: 'https://api.example.com',
+      api_key: 'your_api_key',
+      models: ['model1', 'model2']
     }
   ],
-  "Router": {
-    "default": "your_provider,model1"
+  Router: {
+    default: 'your_provider,model1'
   }
 }
 
@@ -144,7 +141,7 @@ export async function addProvider(providerData) {
     const config = readResult.data
 
     // 检查名称是否已存在
-    if (config.Providers && config.Providers.some(p => p.name === providerData.name)) {
+    if (config.Providers && config.Providers.some((p) => p.name === providerData.name)) {
       return {
         success: false,
         error: `Provider名称 "${providerData.name}" 已存在`
@@ -203,7 +200,7 @@ export async function updateProvider(providerName, updatedData) {
       }
     }
 
-    const providerIndex = config.Providers.findIndex(p => p.name === providerName)
+    const providerIndex = config.Providers.findIndex((p) => p.name === providerName)
     if (providerIndex === -1) {
       return {
         success: false,
@@ -261,7 +258,7 @@ export async function deleteProvider(providerName) {
       }
     }
 
-    const providerIndex = config.Providers.findIndex(p => p.name === providerName)
+    const providerIndex = config.Providers.findIndex((p) => p.name === providerName)
     if (providerIndex === -1) {
       return {
         success: false,
@@ -273,7 +270,11 @@ export async function deleteProvider(providerName) {
     config.Providers.splice(providerIndex, 1)
 
     // 检查是否需要更新默认路由
-    if (config.Router && config.Router.default && config.Router.default.startsWith(providerName + ',')) {
+    if (
+      config.Router &&
+      config.Router.default &&
+      config.Router.default.startsWith(providerName + ',')
+    ) {
       config.Router.default = ''
       console.log(`[ConfigService] 已清空默认路由，因为删除了Provider: ${providerName}`)
     }
@@ -317,7 +318,7 @@ export async function updateDefaultModel(defaultModel) {
     // 如果提供了默认模型，验证其存在性
     if (defaultModel) {
       const [providerName, modelName] = defaultModel.split(',')
-      const provider = config.Providers?.find(p => p.name === providerName)
+      const provider = config.Providers?.find((p) => p.name === providerName)
 
       if (!provider) {
         return {
@@ -391,7 +392,7 @@ export async function updateRouterModel(modelType, modelValue) {
     // 如果提供了模型，验证其存在性
     if (modelValue) {
       const [providerName, modelName] = modelValue.split(',')
-      const provider = config.Providers?.find(p => p.name === providerName)
+      const provider = config.Providers?.find((p) => p.name === providerName)
 
       if (!provider) {
         return {
@@ -469,5 +470,3 @@ export async function updateLongContextThreshold(threshold) {
     }
   }
 }
-
-

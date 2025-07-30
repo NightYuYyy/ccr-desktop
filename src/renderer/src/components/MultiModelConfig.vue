@@ -1,9 +1,21 @@
 <template>
   <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
     <div class="flex items-center space-x-4 mb-6">
-      <div class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex justify-center items-center">
-        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      <div
+        class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex justify-center items-center"
+      >
+        <svg
+          class="w-5 h-5 sm:w-6 sm:h-6 text-white"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
         </svg>
       </div>
       <div>
@@ -23,7 +35,7 @@
         保存所有配置
       </el-button>
     </div>
-    
+
     <!-- 模型配置卡片网格 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
       <!-- 默认模型配置卡片 -->
@@ -222,9 +234,9 @@ const modelOptions = computed(() => {
   if (!props.providers) return []
 
   const options = []
-  props.providers.forEach(provider => {
+  props.providers.forEach((provider) => {
     if (provider.models && Array.isArray(provider.models)) {
-      provider.models.forEach(model => {
+      provider.models.forEach((model) => {
         options.push({
           label: `${provider.name} → ${model}`,
           value: `${provider.name},${model}`,
@@ -269,27 +281,27 @@ const saveAllConfig = async () => {
     // 验证所有发生变化的模型配置
     const modelTypes = ['default', 'background', 'think', 'longContext']
     const errorMessages = []
-    
+
     for (const modelType of modelTypes) {
       if (isModelChanged(modelType)) {
         const modelValue = localRouter.value[modelType]
-        
+
         // 验证模型格式
         if (modelValue && !modelValue.includes(',')) {
           errorMessages.push(`${modelType} 模型格式错误`)
           continue
         }
-        
+
         // 如果提供了模型，验证其存在性
         if (modelValue) {
           const [providerName, modelName] = modelValue.split(',')
-          const provider = props.providers?.find(p => p.name === providerName)
-          
+          const provider = props.providers?.find((p) => p.name === providerName)
+
           if (!provider) {
             errorMessages.push(`找不到Provider: ${providerName}`)
             continue
           }
-          
+
           if (!provider.models || !provider.models.includes(modelName)) {
             errorMessages.push(`Provider "${providerName}" 中找不到模型: ${modelName}`)
             continue
@@ -297,18 +309,18 @@ const saveAllConfig = async () => {
         }
       }
     }
-    
+
     // 验证阈值配置
     if (isThresholdChanged.value && localRouter.value.longContextThreshold < 0) {
       errorMessages.push('阈值不能为负数')
     }
-    
+
     // 如果有错误，显示错误信息并中止保存
     if (errorMessages.length > 0) {
       ElMessage.error(`配置验证失败: ${errorMessages.join('；')}`)
       return
     }
-    
+
     // 构建完整的Router配置对象，确保只包含可序列化的原始数据
     const routerConfig = {
       default: localRouter.value.default,
@@ -317,13 +329,13 @@ const saveAllConfig = async () => {
       longContext: localRouter.value.longContext,
       longContextThreshold: localRouter.value.longContextThreshold
     }
-    
+
     // 发送整体保存事件
     emit('save-all', routerConfig)
-    
+
     // 更新原始值为当前值（标记为已保存）
     originalRouter.value = { ...localRouter.value }
-    
+
     ElMessage.success('所有配置已保存')
   } catch (error) {
     ElMessage.error(`保存配置失败: ${error.message}`)

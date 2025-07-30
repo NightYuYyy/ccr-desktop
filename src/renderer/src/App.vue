@@ -70,7 +70,7 @@ const updateFloatingWindowWithCurrentInfo = async () => {
 const startServicePolling = () => {
   // 立即检查一次
   checkGlobalServiceStatus()
-  
+
   // 每30秒轮询一次
   servicePollingInterval = setInterval(() => {
     checkGlobalServiceStatus()
@@ -106,7 +106,6 @@ const checkGlobalServiceStatus = async () => {
   }
 }
 
-
 // 组件卸载时清理监听器
 onUnmounted(() => {
   // 清理Claude配置保存事件监听器
@@ -114,7 +113,8 @@ onUnmounted(() => {
 
   // {{ AURA-X: Add - 清理网络模式变更事件监听器. Approval: 寸止确认. }}
   // 清理网络模式变更事件监听器
-  window.api.removeNetworkModeChangedListener && window.api.removeNetworkModeChangedListener(handleNetworkModeChanged)
+  window.api.removeNetworkModeChangedListener &&
+    window.api.removeNetworkModeChangedListener(handleNetworkModeChanged)
 
   // 清理服务状态轮询
   stopServicePolling()
@@ -332,7 +332,7 @@ const deleteProvider = async () => {
       if (result.success) {
         // 从本地缓存中移除
         if (configData.value?.Providers) {
-          const index = configData.value.Providers.findIndex(p => p.name === providerName)
+          const index = configData.value.Providers.findIndex((p) => p.name === providerName)
           if (index > -1) {
             configData.value.Providers.splice(index, 1)
           }
@@ -383,7 +383,7 @@ const saveProviderConfig = async () => {
     if (result.success) {
       // 更新本地缓存数据
       if (configData.value?.Providers) {
-        const index = configData.value.Providers.findIndex(p => p.name === providerName)
+        const index = configData.value.Providers.findIndex((p) => p.name === providerName)
         if (index > -1) {
           configData.value.Providers[index] = { ...selectedProvider.value }
         }
@@ -540,10 +540,12 @@ const saveAllRouterConfig = async (routerConfig) => {
     // 使用整体保存API更新路由器配置
     // 创建完整的配置数据对象，确保使用原始数据而不是Vue ref
     // 深度克隆以确保所有数据都是可序列化的
-    const fullConfigData = JSON.parse(JSON.stringify({
-      ...configData.value,
-      Router: routerConfig
-    }))
+    const fullConfigData = JSON.parse(
+      JSON.stringify({
+        ...configData.value,
+        Router: routerConfig
+      })
+    )
 
     const result = await window.api.saveSettings(fullConfigData)
 
@@ -604,7 +606,6 @@ const handleGlobalProxyChange = async (value) => {
 
       // 发送配置保存事件，触发相关组件更新
       window.dispatchEvent(new CustomEvent('claude-config-saved'))
-
     } else {
       // 切换失败，恢复开关状态
       useProxy.value = !value
@@ -646,23 +647,42 @@ const handleGlobalProxyChange = async (value) => {
                 size="small"
                 @change="handleGlobalProxyChange"
               />
-              <span class="text-xs text-gray-500" title="基于Claude配置自动检测">
-                自动检测
-              </span>
+              <span class="text-xs text-gray-500" title="基于Claude配置自动检测"> 自动检测 </span>
             </div>
 
             <!-- 仅在启动服务tab时只显示网络模式，其他tab显示对应按钮 -->
             <template v-if="activeTab !== 'service'">
-              <el-button v-if="activeTab === 'config'" type="success" @click="showAddProvider" class="flex-1 sm:flex-none">
+              <el-button
+                v-if="activeTab === 'config'"
+                type="success"
+                @click="showAddProvider"
+                class="flex-1 sm:flex-none"
+              >
                 添加服务商
               </el-button>
-              <el-button v-if="activeTab === 'config'" type="primary" :loading="isLoading" @click="refreshConfig" class="flex-1 sm:flex-none">
+              <el-button
+                v-if="activeTab === 'config'"
+                type="primary"
+                :loading="isLoading"
+                @click="refreshConfig"
+                class="flex-1 sm:flex-none"
+              >
                 {{ isLoading ? '加载中...' : '刷新配置' }}
               </el-button>
-              <el-button v-if="activeTab === 'config'" type="info" @click="openConfigFolder" class="flex-1 sm:flex-none">
+              <el-button
+                v-if="activeTab === 'config'"
+                type="info"
+                @click="openConfigFolder"
+                class="flex-1 sm:flex-none"
+              >
                 打开CCR配置文件夹
               </el-button>
-              <el-button v-if="activeTab === 'claude'" type="info" @click="openClaudeConfigFolder" class="flex-1 sm:flex-none">
+              <el-button
+                v-if="activeTab === 'claude'"
+                type="info"
+                @click="openClaudeConfigFolder"
+                class="flex-1 sm:flex-none"
+              >
                 打开Claude配置文件夹
               </el-button>
             </template>
@@ -682,7 +702,6 @@ const handleGlobalProxyChange = async (value) => {
 
     <!-- 主内容区域 -->
     <div class="max-w-6xl mx-auto p-4 sm:p-6 pb-8">
-
       <!-- 配置管理Tab内容 -->
       <div v-if="activeTab === 'config'">
         <MultiModelConfig
@@ -709,10 +728,10 @@ const handleGlobalProxyChange = async (value) => {
 
       <!-- 启动服务Tab内容 -->
       <div v-if="activeTab === 'service'">
-        <ServiceTab 
-          :active-tab="activeTab" 
+        <ServiceTab
+          :active-tab="activeTab"
           :is-service-running="isServiceRunning"
-          @message="handleServiceMessage" 
+          @message="handleServiceMessage"
           @service-status-changed="handleServiceStatusChange"
         />
       </div>
@@ -788,7 +807,12 @@ const handleGlobalProxyChange = async (value) => {
               size="small"
               class="flex-1"
             />
-            <el-button type="primary" size="small" @click="addModelToProvider" class="flex-shrink-0">
+            <el-button
+              type="primary"
+              size="small"
+              @click="addModelToProvider"
+              class="flex-shrink-0"
+            >
               添加
             </el-button>
           </div>
@@ -886,7 +910,12 @@ const handleGlobalProxyChange = async (value) => {
               @keyup.enter="addModelToNewProvider"
               class="flex-1"
             />
-            <el-button type="primary" size="small" @click="addModelToNewProvider" class="flex-shrink-0">
+            <el-button
+              type="primary"
+              size="small"
+              @click="addModelToNewProvider"
+              class="flex-shrink-0"
+            >
               添加
             </el-button>
           </div>

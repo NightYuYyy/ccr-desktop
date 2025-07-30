@@ -3,7 +3,9 @@
     <!-- 服务提供商数量 -->
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
       <div class="flex items-center">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-lg flex justify-center items-center">
+        <div
+          class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-lg flex justify-center items-center"
+        >
           <svg
             class="w-5 h-5 sm:w-6 sm:h-6 text-white"
             fill="none"
@@ -30,7 +32,9 @@
     <!-- 已配置Key数量 -->
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
       <div class="flex items-center">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex justify-center items-center">
+        <div
+          class="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg flex justify-center items-center"
+        >
           <svg
             class="w-5 h-5 sm:w-6 sm:h-6 text-white"
             fill="none"
@@ -57,7 +61,9 @@
     <!-- 可用模型数量 -->
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
       <div class="flex items-center">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex justify-center items-center">
+        <div
+          class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg flex justify-center items-center"
+        >
           <svg
             class="w-5 h-5 sm:w-6 sm:h-6 text-white"
             fill="none"

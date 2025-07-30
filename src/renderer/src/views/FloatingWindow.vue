@@ -10,8 +10,6 @@
         <button class="close-btn" @click="closeWindow" @mousedown.stop>×</button>
       </div>
     </div>
-
-
   </div>
 </template>
 
@@ -24,8 +22,6 @@ const statusClass = ref('status-unknown')
 let isDragging = false
 let lastX = 0
 let lastY = 0
-
-
 
 // 监听主进程发送的内容更新消息
 const handleUpdateContent = (event, data) => {
@@ -85,8 +81,6 @@ const endDrag = () => {
   document.removeEventListener('mousemove', drag)
   document.removeEventListener('mouseup', endDrag)
 }
-
-
 
 onMounted(() => {
   // 添加事件监听器
@@ -222,6 +216,4 @@ onUnmounted(() => {
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.2);
 }
-
-
 </style>

@@ -19,9 +19,7 @@
 
       <!-- 模型信息 -->
       <div class="mb-4">
-        <p class="text-sm text-gray-600 mb-2">
-          可用模型 ({{ provider.models?.length || 0 }})
-        </p>
+        <p class="text-sm text-gray-600 mb-2">可用模型 ({{ provider.models?.length || 0 }})</p>
         <div class="flex flex-wrap gap-1">
           <span
             v-for="model in (provider.models || []).slice(0, 3)"

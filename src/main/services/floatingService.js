@@ -40,7 +40,7 @@ export class FloatingService {
       // {{ AURA-X: Modify - 先检测网络模式，然后返回相应的信息. Approval: 寸止确认. }}
       // 检测网络模式
       const networkMode = await this.detectNetworkMode()
-      
+
       if (networkMode.isProxy) {
         // 代理模式：显示CCR配置的模型
         return await this.getCCRModelName()
@@ -62,18 +62,18 @@ export class FloatingService {
     try {
       const configPath = getClaudeSettingsPath()
       const result = await readJsonFile(configPath)
-      
+
       if (result.success && result.data && result.data.env) {
         const baseUrl = result.data.env.ANTHROPIC_BASE_URL
         const CCR_SERVICE_URL = 'http://127.0.0.1:3456'
         const isUsingCCR = baseUrl === CCR_SERVICE_URL
-        
+
         return {
           isProxy: isUsingCCR,
           mode: isUsingCCR ? 'proxy' : 'direct'
         }
       }
-      
+
       return { isProxy: false, mode: 'direct' }
     } catch (error) {
       console.error('[FloatingService] 检测网络模式失败:', error)
@@ -111,44 +111,42 @@ export class FloatingService {
     try {
       const directConfigPath = getDirectConfigPath()
       const directConfigResult = await readJsonFile(directConfigPath)
-      
+
       if (directConfigResult.success && directConfigResult.data) {
         const directData = directConfigResult.data
         const configs = directData.directConfigs || []
-        
+
         // 查找默认配置
         let defaultConfig = null
-        
+
         // 优先使用指定的默认配置
         if (directData.settings && directData.settings.defaultConfig) {
-          defaultConfig = configs.find(c => c.name === directData.settings.defaultConfig)
+          defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
         }
-        
+
         // 如果没有指定默认配置，查找标记为默认的配置
         if (!defaultConfig) {
-          defaultConfig = configs.find(c => c.isDefault)
+          defaultConfig = configs.find((c) => c.isDefault)
         }
-        
+
         // 如果还没有，使用第一个配置
         if (!defaultConfig && configs.length > 0) {
           defaultConfig = configs[0]
         }
-        
+
         if (defaultConfig) {
           // {{ AURA-X: Fix - 直接使用配置名称而不是从URL推断. Approval: 寸止确认. }}
           // 使用用户配置的名称，而不是从baseUrl推断的服务商名称
           return `🔌 直连 | ${defaultConfig.name}`
         }
       }
-      
+
       return '🔌 直连 | 官方API'
     } catch (error) {
       console.error('[FloatingService] 获取直连配置失败:', error)
       return '🔌 直连 | 获取失败'
     }
   }
-
-
 
   /**
    * 检查CCR服务运行状态

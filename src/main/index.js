@@ -88,7 +88,7 @@ function createFloatingWindow() {
     floatingWindow.loadFile(join(__dirname, '../renderer/floating.html'))
   }
 
-    // 隐藏菜单栏
+  // 隐藏菜单栏
   floatingWindow.setMenuBarVisibility(false)
 
   // {{ AURA-X: Add - 确保标题为空，防止显示应用名称. Approval: 寸止确认. }}
@@ -111,15 +111,15 @@ function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     // AURA-X: 优化配置管理面板的默认窗口尺寸
-    width: 1280,        // 增加宽度以支持3列卡片布局
-    height: 860,        // 增加高度以减少滚动需求
-    minWidth: 900,      // 设置最小宽度，确保小屏幕下可用
-    minHeight: 600,     // 设置最小高度
-    center: true,       // 窗口居中显示
+    width: 1280, // 增加宽度以支持3列卡片布局
+    height: 860, // 增加高度以减少滚动需求
+    minWidth: 900, // 设置最小宽度，确保小屏幕下可用
+    minHeight: 600, // 设置最小高度
+    center: true, // 窗口居中显示
     show: false,
     autoHideMenuBar: true,
-    resizable: true,    // 明确设置可调整大小
-    maximizable: true,  // 允许最大化
+    resizable: true, // 明确设置可调整大小
+    maximizable: true, // 允许最大化
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default', // macOS优化
     icon,
     // ...(process.platform === 'linux' ? { icon } : {}),
@@ -148,31 +148,33 @@ function createWindow() {
     event.preventDefault()
 
     // 显示对话框让用户选择
-    dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      buttons: ['最小化到托盘', '退出程序'],
-      title: '确认操作',
-      message: '您是要将程序最小化到系统托盘，还是完全退出程序？',
-      cancelId: 0,  // 默认选择第一个按钮（最小化）
-      defaultId: 0   // 默认高亮第一个按钮
-    }).then(result => {
-      if (result.response === 0) {
-        // 最小化到托盘
-        mainWindow.hide()
-        // {{ AURA-X: Modify - 悬浮窗已常驻显示，无需重复创建. Approval: 寸止确认. }}
-      } else {
-        // 退出程序
-        // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
-        // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
-        isQuitting = true
-        if (floatingWindow) {
-          floatingWindow.destroy()
-          floatingWindow = null
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['最小化到托盘', '退出程序'],
+        title: '确认操作',
+        message: '您是要将程序最小化到系统托盘，还是完全退出程序？',
+        cancelId: 0, // 默认选择第一个按钮（最小化）
+        defaultId: 0 // 默认高亮第一个按钮
+      })
+      .then((result) => {
+        if (result.response === 0) {
+          // 最小化到托盘
+          mainWindow.hide()
+          // {{ AURA-X: Modify - 悬浮窗已常驻显示，无需重复创建. Approval: 寸止确认. }}
+        } else {
+          // 退出程序
+          // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
+          // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
+          isQuitting = true
+          if (floatingWindow) {
+            floatingWindow.destroy()
+            floatingWindow = null
+          }
+          stopFloatingWindowUpdates()
+          app.quit()
         }
-        stopFloatingWindowUpdates()
-        app.quit()
-      }
-    })
+      })
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -318,7 +320,7 @@ async function updateTrayMenu(mainWindow) {
     if (!isProxyMode) {
       const directConfigs = await getDirectConfigs()
       if (directConfigs.length > 0) {
-        const directSubmenu = directConfigs.map(config => ({
+        const directSubmenu = directConfigs.map((config) => ({
           label: config.name,
           type: 'radio',
           checked: config.isDefault,
@@ -339,7 +341,7 @@ async function updateTrayMenu(mainWindow) {
     if (isProxyMode) {
       const ccrModels = await getCCRModels()
       if (ccrModels.length > 0) {
-        const modelSubmenu = ccrModels.map(model => ({
+        const modelSubmenu = ccrModels.map((model) => ({
           label: model.display,
           type: 'radio',
           checked: model.isDefault,
@@ -410,7 +412,7 @@ ipcMain.on('update-floating-window', (event, content) => {
   if (floatingWindow) {
     floatingWindow.webContents.send('update-content', content)
 
-                // {{ AURA-X: Modify - 动态调整窗口宽度并保持右下角位置. Approval: 寸止确认. }}
+    // {{ AURA-X: Modify - 动态调整窗口宽度并保持右下角位置. Approval: 寸止确认. }}
     // {{ AURA-X: Modify - 增加最大宽度，让模型名称完整显示. Approval: 寸止确认. }}
     const minWidth = 250
     const maxWidth = 600 // 大幅增加最大宽度
@@ -426,7 +428,7 @@ ipcMain.on('update-floating-window', (event, content) => {
       text = content
     }
 
-        for (let i = 0; i < text.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       const char = text.charAt(i)
       // 检测中文字符
       if (char.match(/[\u4e00-\u9fa5]/)) {
@@ -491,8 +493,6 @@ ipcMain.on('refresh-floating-window', async () => {
   }
 })
 
-
-
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -542,9 +542,9 @@ async function getCCRModels() {
     if (configResult.success && configResult.data && configResult.data.Providers) {
       const models = []
 
-      configResult.data.Providers.forEach(provider => {
+      configResult.data.Providers.forEach((provider) => {
         if (provider.models) {
-          provider.models.forEach(model => {
+          provider.models.forEach((model) => {
             const key = `${provider.name},${model}`
             const isDefault = configResult.data.Router?.default === key
 
@@ -609,11 +609,11 @@ async function switchNetworkModeFromTray(isProxy) {
           let defaultConfig = null
 
           if (directData.settings && directData.settings.defaultConfig) {
-            defaultConfig = configs.find(c => c.name === directData.settings.defaultConfig)
+            defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
           }
 
           if (!defaultConfig) {
-            defaultConfig = configs.find(c => c.isDefault)
+            defaultConfig = configs.find((c) => c.isDefault)
           }
 
           if (!defaultConfig && configs.length > 0) {
@@ -650,7 +650,7 @@ async function switchNetworkModeFromTray(isProxy) {
     // {{ AURA-X: Add - 通知前端界面同步状态. Approval: 寸止确认. }}
     // 通知主窗口同步状态
     const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach(window => {
+    allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('network-mode-changed', { isProxy })
       }
@@ -725,8 +725,6 @@ async function applyCCRModelFromTray(model) {
     return false
   }
 }
-
-
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.

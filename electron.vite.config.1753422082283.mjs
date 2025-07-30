@@ -1,12 +1,12 @@
 // electron.vite.config.mjs
-import { resolve } from "path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
-import vue from "@vitejs/plugin-vue";
-import UnoCSS from "unocss/vite";
-import AutoImport from "unplugin-auto-import/vite";
-import Components from "unplugin-vue-components/vite";
-import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
-var __electron_vite_injected_dirname = "C:\\Users\\zhengjiyong\\code\\ccr-desktop";
+import { resolve } from 'path'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import vue from '@vitejs/plugin-vue'
+import UnoCSS from 'unocss/vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+var __electron_vite_injected_dirname = 'C:\\Users\\zhengjiyong\\code\\ccr-desktop'
 var electron_vite_config_default = defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()]
@@ -18,14 +18,14 @@ var electron_vite_config_default = defineConfig({
     build: {
       rollupOptions: {
         input: {
-          main: resolve(__electron_vite_injected_dirname, "src/renderer/index.html"),
-          floating: resolve(__electron_vite_injected_dirname, "src/renderer/floating.html")
+          main: resolve(__electron_vite_injected_dirname, 'src/renderer/index.html'),
+          floating: resolve(__electron_vite_injected_dirname, 'src/renderer/floating.html')
         }
       }
     },
     resolve: {
       alias: {
-        "@renderer": resolve("src/renderer/src")
+        '@renderer': resolve('src/renderer/src')
       }
     },
     plugins: [
@@ -41,7 +41,5 @@ var electron_vite_config_default = defineConfig({
       })
     ]
   }
-});
-export {
-  electron_vite_config_default as default
-};
+})
+export { electron_vite_config_default as default }

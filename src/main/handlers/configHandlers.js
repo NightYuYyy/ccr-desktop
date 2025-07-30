@@ -13,7 +13,12 @@ import {
 } from '../services/configService.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { writeFile } from 'fs/promises'
-import { getUserHomeDir, getClaudeSettingsPath, getClaudeConfigDir, getDirectConfigPath } from '../utils/pathUtils.js'
+import {
+  getUserHomeDir,
+  getClaudeSettingsPath,
+  getClaudeConfigDir,
+  getDirectConfigPath
+} from '../utils/pathUtils.js'
 
 /**
  * 注册配置相关的IPC处理器
@@ -69,7 +74,7 @@ export function registerConfigHandlers() {
     }
   })
 
-    // 打开配置文件夹的处理器
+  // 打开配置文件夹的处理器
   ipcMain.handle('open-config-folder', async () => {
     try {
       const paths = getConfigPaths()
@@ -148,7 +153,7 @@ export function registerConfigHandlers() {
     }
   })
 
-    // 执行命令的处理器（支持实时输出）
+  // 执行命令的处理器（支持实时输出）
   ipcMain.handle('exec-command', async (event, command) => {
     return new Promise((resolve) => {
       console.log('[ConfigHandler] 执行命令:', command)
@@ -419,7 +424,7 @@ export function registerConfigHandlers() {
     }
   })
 
-    // 获取用户主目录的处理器
+  // 获取用户主目录的处理器
   ipcMain.handle('get-home-dir', async () => {
     try {
       const homeDir = getUserHomeDir()
@@ -588,8 +593,7 @@ export function registerConfigHandlers() {
           const defaultConfig = {
             version: '1.0',
             directConfigs: [],
-            settings: {
-            }
+            settings: {}
           }
 
           console.log('[ConfigHandler] 直连配置文件不存在，返回默认配置')
@@ -723,7 +727,6 @@ export function registerConfigHandlers() {
         delete settings.env.ANTHROPIC_AUTH_TOKEN
         // 设置CCR服务地址
         settings.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:3456'
-
       } else {
         // 切换到直连模式，需要从保存的直连配置中获取默认配置
         console.log('[ConfigHandler] 切换到直连模式，尝试恢复直连配置')
@@ -742,12 +745,12 @@ export function registerConfigHandlers() {
 
             // 优先使用指定的默认配置
             if (directData.settings && directData.settings.defaultConfig) {
-              defaultConfig = configs.find(c => c.name === directData.settings.defaultConfig)
+              defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
             }
 
             // 如果没有指定默认配置，查找标记为默认的配置
             if (!defaultConfig) {
-              defaultConfig = configs.find(c => c.isDefault)
+              defaultConfig = configs.find((c) => c.isDefault)
             }
 
             // 如果还没有，使用第一个配置

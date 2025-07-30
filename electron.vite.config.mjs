@@ -33,11 +33,11 @@ export default defineConfig({
       UnoCSS(),
       // Element Plus 自动导入插件
       AutoImport({
-        resolvers: [ElementPlusResolver()],
+        resolvers: [ElementPlusResolver()]
       }),
       Components({
-        resolvers: [ElementPlusResolver()],
-      }),
+        resolvers: [ElementPlusResolver()]
+      })
     ]
   }
 })

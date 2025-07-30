@@ -131,8 +131,6 @@ const api = {
     ipcRenderer.removeListener('network-mode-changed', callback)
   },
 
-
-
   // === 直连配置相关API ===
   async getDirectConfigPath() {
     return ipcRenderer.invoke('get-direct-config-path')

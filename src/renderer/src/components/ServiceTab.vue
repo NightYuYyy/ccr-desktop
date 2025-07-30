@@ -10,8 +10,13 @@
         <div class="flex items-center space-x-3">
           <!-- 服务状态指示器 -->
           <div class="flex items-center space-x-2">
-            <div :class="['w-2 h-2 rounded-full', isServiceRunning ? 'bg-green-500' : 'bg-gray-400']"></div>
-            <span class="text-sm font-medium" :class="isServiceRunning ? 'text-green-600' : 'text-gray-600'">
+            <div
+              :class="['w-2 h-2 rounded-full', isServiceRunning ? 'bg-green-500' : 'bg-gray-400']"
+            ></div>
+            <span
+              class="text-sm font-medium"
+              :class="isServiceRunning ? 'text-green-600' : 'text-gray-600'"
+            >
               {{ isServiceRunning ? '服务运行中' : '服务已停止' }}
             </span>
           </div>
@@ -21,9 +26,9 @@
             <el-button
               v-if="!isServiceRunning"
               type="primary"
-              @click="startService"
               :loading="isStarting"
               size="large"
+              @click="startService"
             >
               {{ isStarting ? '正在启动...' : '启动CCR服务' }}
             </el-button>
@@ -31,18 +36,18 @@
             <el-button
               v-if="isServiceRunning"
               type="danger"
-              @click="stopService"
               :loading="isStopping"
               size="large"
+              @click="stopService"
             >
               {{ isStopping ? '正在停止...' : '停止CCR服务' }}
             </el-button>
 
-            <el-button @click="checkServiceStatus" :loading="isCheckingStatus" size="large">
+            <el-button :loading="isCheckingStatus" size="large" @click="checkServiceStatus">
               {{ isCheckingStatus ? '检查中...' : '刷新状态' }}
             </el-button>
 
-            <el-button @click="clearOutput" :disabled="!serviceOutput" size="large">
+            <el-button :disabled="!serviceOutput" size="large" @click="clearOutput">
               清空日志
             </el-button>
           </div>
@@ -53,7 +58,9 @@
     <!-- 输出日志区域 -->
     <div class="bg-white rounded-lg shadow-md p-6">
       <h4 class="text-md font-semibold text-gray-900 mb-4">执行日志</h4>
-      <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm min-h-32 max-h-96 overflow-y-auto command-output">
+      <div
+        class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm min-h-32 max-h-96 overflow-y-auto command-output"
+      >
         <pre v-if="serviceOutput" class="whitespace-pre-wrap">{{ serviceOutput }}</pre>
         <div v-else class="text-gray-500 italic">暂无日志输出</div>
       </div>
@@ -104,9 +111,12 @@ const props = defineProps({
 })
 
 // 监听全局服务状态变化
-watch(() => props.isServiceRunning, (newStatus) => {
-  console.log('[ServiceTab] 收到全局服务状态更新:', newStatus)
-})
+watch(
+  () => props.isServiceRunning,
+  (newStatus) => {
+    console.log('[ServiceTab] 收到全局服务状态更新:', newStatus)
+  }
+)
 
 // 命令输出监听器
 const handleCommandOutput = (event, { data }) => {
@@ -130,7 +140,6 @@ onUnmounted(() => {
   window.api.removeCommandOutputListener(handleCommandOutput)
 })
 
-
 // 检查服务状态
 const checkServiceStatus = async () => {
   if (isCheckingStatus.value) return
@@ -148,17 +157,23 @@ const checkServiceStatus = async () => {
       const isRunning = output.includes('running') && !output.includes('not running')
       // 不再设置本地状态，由全局状态管理
       // {{ AURA-X: Modify - 状态检测完成后统一刷新悬浮窗. Approval: 寸止确认. }}
+
+      console.log('[ServiceTab] 服务状态检查结果:', {
+        success: result.success,
+        stdout: result.stdout,
+        isRunning: isRunning
+      })
     } else {
       // 命令执行失败或无输出，认为服务未运行
       // 不再设置本地状态，由全局状态管理
       // {{ AURA-X: Modify - 状态检测完成后统一刷新悬浮窗. Approval: 寸止确认. }}
-    }
 
-    console.log('[ServiceTab] 服务状态检查结果:', {
-      success: result.success,
-      stdout: result.stdout,
-      isRunning: isServiceRunning.value
-    })
+      console.log('[ServiceTab] 服务状态检查结果:', {
+        success: result.success,
+        stdout: result.stdout,
+        isRunning: false
+      })
+    }
   } catch (error) {
     console.error('[ServiceTab] 检查服务状态异常:', error)
     // 不再设置本地状态，由全局状态管理
@@ -186,18 +201,18 @@ const startService = async () => {
         // 通知父组件更新全局状态
         emit('service-status-changed', true)
         // {{ AURA-X: Modify - 服务启动后统一刷新悬浮窗. Approval: 寸止确认. }}
-        } else if (!result.hasOutput) {
+      } else if (!result.hasOutput) {
         serviceOutput.value += `✅ 命令执行成功（无输出）\n`
         emit('message', { text: '命令执行成功', type: 'success' })
         // 执行状态检查确认服务状态
         await checkServiceStatus()
         // {{ AURA-X: Modify - 执行状态检查后统一刷新悬浮窗. Approval: 寸止确认. }}
-        } else {
+      } else {
         emit('message', { text: '命令执行成功', type: 'success' })
         // 执行状态检查确认服务状态
         await checkServiceStatus()
         // {{ AURA-X: Modify - 执行状态检查后统一刷新悬浮窗. Approval: 寸止确认. }}
-        }
+      }
     } else {
       serviceOutput.value += `\n❌ 服务启动失败\n`
       if (result.error) {
@@ -232,8 +247,8 @@ const stopService = async () => {
       emit('message', { text: 'CCR服务已停止', type: 'success' })
       // 通知父组件更新全局状态
       emit('service-status-changed', false)
-              // {{ AURA-X: Modify - 服务停止后统一刷新悬浮窗. Approval: 寸止确认. }}
-      } else {
+      // {{ AURA-X: Modify - 服务停止后统一刷新悬浮窗. Approval: 寸止确认. }}
+    } else {
       serviceOutput.value += `\n❌ 服务停止失败\n`
       if (result.error) {
         serviceOutput.value += `错误: ${result.error}\n`

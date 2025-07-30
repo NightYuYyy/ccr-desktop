@@ -10,7 +10,9 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="flex justify-center items-center py-10">
       <div class="text-center">
-        <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <div
+          class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
+        ></div>
         <p class="text-gray-600">正在加载配置...</p>
       </div>
     </div>
@@ -21,8 +23,12 @@
       <div v-if="directConfigs.length === 0" class="text-center py-12">
         <div class="text-gray-400 mb-4">
           <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">暂无直连配置</h3>
@@ -32,8 +38,11 @@
 
       <!-- 配置卡片网格 -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="config in directConfigs" :key="config.id"
-             class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div
+          v-for="config in directConfigs"
+          :key="config.id"
+          class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+        >
           <!-- 配置头部 -->
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
@@ -46,13 +55,17 @@
             <el-dropdown @command="(cmd) => handleConfigAction(cmd, config)">
               <el-button type="text" size="small">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                  <path
+                    d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                  />
                 </svg>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                  <el-dropdown-item command="setDefault" :disabled="config.isDefault">设为默认</el-dropdown-item>
+                  <el-dropdown-item command="setDefault" :disabled="config.isDefault"
+                    >设为默认</el-dropdown-item
+                  >
                   <el-dropdown-item command="apply">应用到Claude</el-dropdown-item>
                   <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
                 </el-dropdown-menu>
@@ -68,21 +81,40 @@
                 {{ showApiKey[config.id] ? config.apiKey : maskApiKey(config.apiKey) }}
               </code>
               <el-button type="text" size="small" @click="toggleApiKeyVisibility(config.id)">
-                <svg v-if="showApiKey[config.id]" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                <svg
+                  v-if="showApiKey[config.id]"
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
+                  />
                 </svg>
                 <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
                 </svg>
               </el-button>
             </div>
           </div>
 
           <!-- 创建时间 -->
-          <div class="text-xs text-gray-400">
-            创建于 {{ formatDate(config.createdAt) }}
-          </div>
+          <div class="text-xs text-gray-400">创建于 {{ formatDate(config.createdAt) }}</div>
         </div>
       </div>
     </div>
@@ -156,12 +188,8 @@ const configForm = reactive({
 
 // 表单验证规则
 const configRules = {
-  name: [
-    { required: true, message: '请输入配置名称', trigger: 'blur' }
-  ],
-  apiKey: [
-    { required: true, message: '请输入API Key', trigger: 'blur' }
-  ],
+  name: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
+  apiKey: [{ required: true, message: '请输入API Key', trigger: 'blur' }],
   baseUrl: [
     { required: true, message: '请输入API基础地址', trigger: 'blur' },
     { type: 'url', message: '请输入正确的URL格式', trigger: 'blur' }
@@ -204,7 +232,7 @@ const saveDirectConfig = async () => {
       directConfigs: JSON.parse(JSON.stringify(directConfigs.value)),
       settings: {
         // 使用defaultConfig字段指定默认配置名称，而不是在每个配置中使用isDefault
-        defaultConfig: directConfigs.value.find(c => c.isDefault)?.name || ''
+        defaultConfig: directConfigs.value.find((c) => c.isDefault)?.name || ''
       }
     }
 
@@ -259,7 +287,7 @@ const saveConfig = async () => {
 
     if (editingConfig.value) {
       // 编辑现有配置
-      const index = directConfigs.value.findIndex(c => c.id === editingConfig.value.id)
+      const index = directConfigs.value.findIndex((c) => c.id === editingConfig.value.id)
       if (index > -1) {
         directConfigs.value[index] = {
           ...directConfigs.value[index],
@@ -285,8 +313,11 @@ const saveConfig = async () => {
 
     // 如果设置为默认，清除其他默认配置
     if (configForm.isDefault) {
-      directConfigs.value.forEach(config => {
-        if (config.id !== (editingConfig.value?.id || directConfigs.value[directConfigs.value.length - 1].id)) {
+      directConfigs.value.forEach((config) => {
+        if (
+          config.id !==
+          (editingConfig.value?.id || directConfigs.value[directConfigs.value.length - 1].id)
+        ) {
           config.isDefault = false
         }
       })
@@ -338,7 +369,7 @@ const editConfig = (config) => {
 const setDefaultConfig = async (config) => {
   try {
     // 清除所有默认标记
-    directConfigs.value.forEach(c => c.isDefault = false)
+    directConfigs.value.forEach((c) => (c.isDefault = false))
     // 设置当前配置为默认
     config.isDefault = true
 
@@ -376,18 +407,14 @@ const applyConfig = async (config) => {
 // 删除配置
 const deleteConfig = async (config) => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除配置 "${config.name}" 吗？此操作无法撤销。`,
-      '删除确认',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-        confirmButtonClass: 'el-button--danger'
-      }
-    )
+    await ElMessageBox.confirm(`确定要删除配置 "${config.name}" 吗？此操作无法撤销。`, '删除确认', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
+    })
 
-    const index = directConfigs.value.findIndex(c => c.id === config.id)
+    const index = directConfigs.value.findIndex((c) => c.id === config.id)
     if (index > -1) {
       directConfigs.value.splice(index, 1)
 

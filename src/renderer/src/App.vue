@@ -38,7 +38,11 @@ const selectedProviderTransformerText = ref('')
 onMounted(() => {
   // 监听Claude配置保存事件
   window.addEventListener('claude-config-saved', handleClaudeConfigSaved)
-  
+
+  // {{ AURA-X: Add - 监听托盘菜单的网络模式变更事件. Approval: 寸止确认. }}
+  // 监听来自托盘菜单的网络模式变更
+  window.api.onNetworkModeChanged && window.api.onNetworkModeChanged(handleNetworkModeChanged)
+
   loadConfig()
   loadConfigPaths()
   detectNetworkMode() // 自动检测网络模式
@@ -66,11 +70,24 @@ const checkServiceStatusAndUpdateFloatingWindow = updateFloatingWindowWithCurren
 onUnmounted(() => {
   // 清理Claude配置保存事件监听器
   window.removeEventListener('claude-config-saved', handleClaudeConfigSaved)
+
+  // {{ AURA-X: Add - 清理网络模式变更事件监听器. Approval: 寸止确认. }}
+  // 清理网络模式变更事件监听器
+  window.api.removeNetworkModeChangedListener && window.api.removeNetworkModeChangedListener(handleNetworkModeChanged)
 })
 
 // 处理Claude配置保存事件
 const handleClaudeConfigSaved = () => {
   console.log('[App] 收到Claude配置保存事件，重新检测网络模式')
+  detectNetworkMode()
+}
+
+// {{ AURA-X: Add - 处理托盘菜单的网络模式变更事件. Approval: 寸止确认. }}
+// 处理网络模式变更事件
+const handleNetworkModeChanged = ({ isProxy }) => {
+  console.log('[App] 收到网络模式变更事件:', isProxy ? '代理模式' : '直连模式')
+  useProxy.value = isProxy
+  // 重新检测网络模式以确保状态一致
   detectNetworkMode()
 }
 
@@ -483,7 +500,7 @@ const saveAllRouterConfig = async (routerConfig) => {
       ...configData.value,
       Router: routerConfig
     }))
-    
+
     const result = await window.api.saveSettings(fullConfigData)
 
     if (result.success) {
@@ -509,10 +526,45 @@ const handleServiceMessage = ({ text, type }) => {
   showMessage(text, type)
 }
 
+// {{ AURA-X: Modify - 完善全局代理切换逻辑，实现实际的网络模式切换. Approval: 寸止确认. }}
 // 处理全局代理切换
-const handleGlobalProxyChange = (value) => {
-  showMessage(`已手动切换到${value ? '代理模式' : '直连模式'}`, 'info')
-  // 这里可以根据需要添加全局代理设置逻辑
+const handleGlobalProxyChange = async (value) => {
+  try {
+    console.log('[App] 开始切换网络模式:', value ? '代理模式' : '直连模式')
+
+    // 显示切换提示
+    showMessage(`正在切换到${value ? '代理模式' : '直连模式'}...`, 'info')
+
+    // 调用主进程进行网络模式切换
+    const result = await window.api.switchNetworkMode(value)
+
+    if (result.success) {
+      // 切换成功，显示成功消息
+      showMessage(`${result.message}`, 'success')
+
+      // 重新检测网络模式以确保UI状态正确
+      setTimeout(() => {
+        detectNetworkMode()
+      }, 500)
+
+      // 更新悬浮窗状态
+      updateFloatingWindowWithCurrentInfo()
+
+      // 发送配置保存事件，触发相关组件更新
+      window.dispatchEvent(new CustomEvent('claude-config-saved'))
+
+    } else {
+      // 切换失败，恢复开关状态
+      useProxy.value = !value
+      showMessage(`切换失败: ${result.error}`, 'error')
+      console.error('[App] 网络模式切换失败:', result.error)
+    }
+  } catch (error) {
+    // 异常处理，恢复开关状态
+    useProxy.value = !value
+    showMessage(`切换异常: ${error.message}`, 'error')
+    console.error('[App] 网络模式切换异常:', error)
+  }
 }
 </script>
 
@@ -546,7 +598,7 @@ const handleGlobalProxyChange = (value) => {
                 自动检测
               </span>
             </div>
-            
+
             <!-- 仅在启动服务tab时只显示网络模式，其他tab显示对应按钮 -->
             <template v-if="activeTab !== 'service'">
               <el-button v-if="activeTab === 'config'" type="success" @click="showAddProvider" class="flex-1 sm:flex-none">

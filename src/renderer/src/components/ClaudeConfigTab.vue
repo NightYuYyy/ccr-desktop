@@ -21,7 +21,7 @@
       <div v-if="directConfigs.length === 0" class="text-center py-12">
         <div class="text-gray-400 mb-4">
           <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
         </div>
@@ -32,7 +32,7 @@
 
       <!-- 配置卡片网格 -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="config in directConfigs" :key="config.id" 
+        <div v-for="config in directConfigs" :key="config.id"
              class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
           <!-- 配置头部 -->
           <div class="flex items-start justify-between mb-3">
@@ -64,7 +64,7 @@
           <div class="mb-3">
             <label class="block text-xs text-gray-500 mb-1">API Key</label>
             <div class="flex items-center gap-2">
-              <code class="text-xs bg-gray-100 px-2 py-1 rounded flex-1 truncate">
+              <code class="text-xs bg-gray-500 px-2 py-1 rounded flex-1 truncate">
                 {{ showApiKey[config.id] ? config.apiKey : maskApiKey(config.apiKey) }}
               </code>
               <el-button type="text" size="small" @click="toggleApiKeyVisibility(config.id)">
@@ -98,20 +98,20 @@
         <el-form-item label="配置名称" prop="name">
           <el-input v-model="configForm.name" placeholder="请输入配置名称" />
         </el-form-item>
-        
+
         <el-form-item label="API Key" prop="apiKey">
-          <el-input 
-            v-model="configForm.apiKey" 
-            type="password" 
-            placeholder="请输入API Key" 
+          <el-input
+            v-model="configForm.apiKey"
+            type="password"
+            placeholder="请输入API Key"
             show-password
           />
         </el-form-item>
-        
+
         <el-form-item label="Base URL" prop="baseUrl">
           <el-input v-model="configForm.baseUrl" placeholder="请输入API基础地址" />
         </el-form-item>
-        
+
         <el-form-item>
           <el-checkbox v-model="configForm.isDefault">设为默认配置</el-checkbox>
         </el-form-item>
@@ -175,10 +175,10 @@ const loadDirectConfig = async () => {
   loading.value = true
   try {
     const result = await window.api.readDirectConfig()
-    
+
     if (result.success) {
       directConfigs.value = result.data.directConfigs || []
-      
+
       if (result.isDefault) {
         ElMessage.info('使用默认配置，暂无保存的直连配置')
       } else {
@@ -199,17 +199,19 @@ const loadDirectConfig = async () => {
 // 保存直连配置
 const saveDirectConfig = async () => {
   try {
+    // {{ AURA-X: Modify - 优化数据结构，使用defaultConfig字段替代isDefault. Approval: 寸止确认. }}
     // 深度克隆以确保所有数据都是可序列化的
     const configData = {
       version: '1.0',
       directConfigs: JSON.parse(JSON.stringify(directConfigs.value)),
       settings: {
-        autoApplyDefault: true
+        // 使用defaultConfig字段指定默认配置名称，而不是在每个配置中使用isDefault
+        defaultConfig: directConfigs.value.find(c => c.isDefault)?.name || ''
       }
     }
-    
+
     const result = await window.api.saveDirectConfig(configData)
-    
+
     if (result.success) {
       return true
     } else {
@@ -236,7 +238,7 @@ const resetConfigForm = () => {
   configForm.apiKey = ''
   configForm.baseUrl = 'https://api.anthropic.com'
   configForm.isDefault = false
-  
+
   if (configFormRef.value) {
     configFormRef.value.resetFields()
   }
@@ -245,18 +247,18 @@ const resetConfigForm = () => {
 // 保存配置
 const saveConfig = async () => {
   if (!configFormRef.value) return
-  
+
   try {
     await configFormRef.value.validate()
   } catch {
     return
   }
-  
+
   saving.value = true
-  
+
   try {
     const now = new Date().toISOString()
-    
+
     if (editingConfig.value) {
       // 编辑现有配置
       const index = directConfigs.value.findIndex(c => c.id === editingConfig.value.id)
@@ -279,10 +281,10 @@ const saveConfig = async () => {
         isDefault: configForm.isDefault,
         createdAt: now
       }
-      
+
       directConfigs.value.push(newConfig)
     }
-    
+
     // 如果设置为默认，清除其他默认配置
     if (configForm.isDefault) {
       directConfigs.value.forEach(config => {
@@ -291,7 +293,7 @@ const saveConfig = async () => {
         }
       })
     }
-    
+
     // 保存到文件
     const success = await saveDirectConfig()
     if (success) {
@@ -341,7 +343,7 @@ const setDefaultConfig = async (config) => {
     directConfigs.value.forEach(c => c.isDefault = false)
     // 设置当前配置为默认
     config.isDefault = true
-    
+
     const success = await saveDirectConfig()
     if (success) {
       ElMessage.success(`已将 "${config.name}" 设为默认配置`)
@@ -358,10 +360,10 @@ const applyConfig = async (config) => {
     // 深度克隆以确保配置对象是可序列化的
     const configToApply = JSON.parse(JSON.stringify(config))
     const result = await window.api.applyDirectConfig(configToApply)
-    
+
     if (result.success) {
       ElMessage.success(result.message)
-      
+
       // 通知父组件重新检测网络模式
       window.dispatchEvent(new CustomEvent('claude-config-saved'))
     } else {
@@ -386,11 +388,11 @@ const deleteConfig = async (config) => {
         confirmButtonClass: 'el-button--danger'
       }
     )
-    
+
     const index = directConfigs.value.findIndex(c => c.id === config.id)
     if (index > -1) {
       directConfigs.value.splice(index, 1)
-      
+
       const success = await saveDirectConfig()
       if (success) {
         ElMessage.success(`配置 "${config.name}" 已删除`)

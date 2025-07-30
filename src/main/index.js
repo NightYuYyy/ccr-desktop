@@ -259,39 +259,150 @@ function createTray(mainWindow) {
   // 设置托盘图标提示
   tray.setToolTip('CCR Desktop')
 
-  // 创建托盘菜单
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: '显示主窗口',
-      click: () => {
-        mainWindow.show()
-        // {{ AURA-X: Modify - 悬浮窗常驻显示，不再隐藏. Approval: 寸止确认. }}
-      }
-    },
-    {
-      label: '退出程序',
-      click: () => {
-        // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
-        // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
-        isQuitting = true
-        if (floatingWindow) {
-          floatingWindow.destroy()
-          floatingWindow = null
-        }
-        stopFloatingWindowUpdates()
-        app.quit()
-      }
-    }
-  ])
-
-  // 设置托盘菜单
-  tray.setContextMenu(contextMenu)
+  // {{ AURA-X: Modify - 创建动态托盘菜单. Approval: 寸止确认. }}
+  // 初始化托盘菜单
+  updateTrayMenu(mainWindow)
 
   // 监听托盘图标点击事件
   tray.on('click', () => {
     mainWindow.show()
     // {{ AURA-X: Modify - 悬浮窗常驻显示，不再隐藏. Approval: 寸止确认. }}
   })
+}
+
+// {{ AURA-X: Add - 动态更新托盘菜单. Approval: 寸止确认. }}
+// 更新托盘菜单
+async function updateTrayMenu(mainWindow) {
+  if (!tray) return
+
+  try {
+    // 获取当前网络模式
+    const networkResult = await detectNetworkMode()
+    const isProxyMode = networkResult.isProxy
+
+    // 构建菜单模板
+    const menuTemplate = [
+      {
+        label: '显示主窗口',
+        click: () => {
+          mainWindow.show()
+        }
+      },
+      { type: 'separator' },
+      {
+        label: '网络模式',
+        submenu: [
+          {
+            label: '🔗 代理模式',
+            type: 'radio',
+            checked: isProxyMode,
+            click: async () => {
+              await switchNetworkModeFromTray(true)
+              updateTrayMenu(mainWindow)
+            }
+          },
+          {
+            label: '🔌 直连模式',
+            type: 'radio',
+            checked: !isProxyMode,
+            click: async () => {
+              await switchNetworkModeFromTray(false)
+              updateTrayMenu(mainWindow)
+            }
+          }
+        ]
+      }
+    ]
+
+    // 添加直连配置菜单（直连模式下）
+    if (!isProxyMode) {
+      const directConfigs = await getDirectConfigs()
+      if (directConfigs.length > 0) {
+        const directSubmenu = directConfigs.map(config => ({
+          label: config.name,
+          type: 'radio',
+          checked: config.isDefault,
+          click: async () => {
+            await applyDirectConfigFromTray(config)
+            updateTrayMenu(mainWindow)
+          }
+        }))
+
+        menuTemplate.push({
+          label: '直连配置',
+          submenu: directSubmenu
+        })
+      }
+    }
+
+    // 添加CCR模型菜单（代理模式下）
+    if (isProxyMode) {
+      const ccrModels = await getCCRModels()
+      if (ccrModels.length > 0) {
+        const modelSubmenu = ccrModels.map(model => ({
+          label: model.display,
+          type: 'radio',
+          checked: model.isDefault,
+          click: async () => {
+            await applyCCRModelFromTray(model)
+            updateTrayMenu(mainWindow)
+          }
+        }))
+
+        menuTemplate.push({
+          label: '代理模型',
+          submenu: modelSubmenu
+        })
+      }
+    }
+
+    // 添加分隔符和退出按钮
+    menuTemplate.push(
+      { type: 'separator' },
+      {
+        label: '退出程序',
+        click: () => {
+          // {{ AURA-X: Add - 清理悬浮窗资源，防止应用无法关闭. Approval: 寸止确认. }}
+          // {{ AURA-X: Modify - 设置退出标志防止无限循环. Approval: 寸止确认. }}
+          isQuitting = true
+          if (floatingWindow) {
+            floatingWindow.destroy()
+            floatingWindow = null
+          }
+          stopFloatingWindowUpdates()
+          app.quit()
+        }
+      }
+    )
+
+    // 创建并设置菜单
+    const contextMenu = Menu.buildFromTemplate(menuTemplate)
+    tray.setContextMenu(contextMenu)
+  } catch (error) {
+    console.error('[Tray] 更新托盘菜单失败:', error)
+
+    // 出错时使用基础菜单
+    const basicMenu = Menu.buildFromTemplate([
+      {
+        label: '显示主窗口',
+        click: () => mainWindow.show()
+      },
+      { type: 'separator' },
+      {
+        label: '退出程序',
+        click: () => {
+          isQuitting = true
+          if (floatingWindow) {
+            floatingWindow.destroy()
+            floatingWindow = null
+          }
+          stopFloatingWindowUpdates()
+          app.quit()
+        }
+      }
+    ])
+    tray.setContextMenu(basicMenu)
+  }
 }
 
 // 添加IPC处理器用于更新悬浮窗内容
@@ -380,6 +491,8 @@ ipcMain.on('refresh-floating-window', async () => {
   }
 })
 
+
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -390,6 +503,230 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+// {{ AURA-X: Add - 托盘菜单辅助函数. Approval: 寸止确认. }}
+// 托盘菜单辅助函数
+
+// 检测网络模式
+async function detectNetworkMode() {
+  return await FloatingService.detectNetworkMode()
+}
+
+// 获取直连配置列表
+async function getDirectConfigs() {
+  try {
+    // 引入必要的模块
+    const { getDirectConfigPath } = await import('./utils/pathUtils.js')
+    const { readJsonFile } = await import('./utils/fileUtils.js')
+
+    const directConfigPath = getDirectConfigPath()
+    const result = await readJsonFile(directConfigPath)
+
+    if (result.success && result.data && result.data.directConfigs) {
+      return result.data.directConfigs
+    }
+
+    return []
+  } catch (error) {
+    console.error('[Tray] 获取直连配置失败:', error)
+    return []
+  }
+}
+
+// 获取CCR模型列表
+async function getCCRModels() {
+  try {
+    const { readClaudeCodeRouterSettings } = await import('./services/configService.js')
+    const configResult = await readClaudeCodeRouterSettings()
+
+    if (configResult.success && configResult.data && configResult.data.Providers) {
+      const models = []
+
+      configResult.data.Providers.forEach(provider => {
+        if (provider.models) {
+          provider.models.forEach(model => {
+            const key = `${provider.name},${model}`
+            const isDefault = configResult.data.Router?.default === key
+
+            models.push({
+              key,
+              display: `${provider.name}/${model}`,
+              isDefault,
+              provider: provider.name,
+              model
+            })
+          })
+        }
+      })
+
+      return models
+    }
+
+    return []
+  } catch (error) {
+    console.error('[Tray] 获取CCR模型列表失败:', error)
+    return []
+  }
+}
+
+// 从托盘切换网络模式
+async function switchNetworkModeFromTray(isProxy) {
+  try {
+    // 引入必要的模块
+    const { getClaudeSettingsPath, getDirectConfigPath } = await import('./utils/pathUtils.js')
+    const { readJsonFile, writeJsonFile } = await import('./utils/fileUtils.js')
+
+    const settingsPath = getClaudeSettingsPath()
+
+    // 读取现有的settings.json
+    const readResult = await readJsonFile(settingsPath)
+    let settings = {}
+
+    if (readResult.success) {
+      settings = readResult.data
+    }
+
+    // 初始化env配置
+    if (!settings.env) {
+      settings.env = {}
+    }
+
+    if (isProxy) {
+      // 切换到代理模式
+      delete settings.env.ANTHROPIC_AUTH_TOKEN
+      settings.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:3456'
+    } else {
+      // 切换到直连模式，恢复直连配置
+      try {
+        const directConfigPath = getDirectConfigPath()
+        const directConfigResult = await readJsonFile(directConfigPath)
+
+        if (directConfigResult.success && directConfigResult.data) {
+          const directData = directConfigResult.data
+          const configs = directData.directConfigs || []
+
+          // 查找默认配置
+          let defaultConfig = null
+
+          if (directData.settings && directData.settings.defaultConfig) {
+            defaultConfig = configs.find(c => c.name === directData.settings.defaultConfig)
+          }
+
+          if (!defaultConfig) {
+            defaultConfig = configs.find(c => c.isDefault)
+          }
+
+          if (!defaultConfig && configs.length > 0) {
+            defaultConfig = configs[0]
+          }
+
+          if (defaultConfig) {
+            settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+            settings.env.ANTHROPIC_BASE_URL = defaultConfig.baseUrl
+          } else {
+            settings.env.ANTHROPIC_AUTH_TOKEN = ''
+            settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+          }
+        } else {
+          settings.env.ANTHROPIC_AUTH_TOKEN = ''
+          settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+        }
+      } catch (directError) {
+        console.error('[Tray] 读取直连配置失败:', directError)
+        settings.env.ANTHROPIC_AUTH_TOKEN = ''
+        settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+      }
+    }
+
+    // 保存更新后的settings.json
+    await writeJsonFile(settingsPath, settings)
+
+    // 刷新悬浮窗
+    if (floatingWindow && !floatingWindow.isDestroyed()) {
+      const modelInfo = await FloatingService.getCurrentInfo()
+      floatingWindow.webContents.send('update-content', modelInfo)
+    }
+
+    // {{ AURA-X: Add - 通知前端界面同步状态. Approval: 寸止确认. }}
+    // 通知主窗口同步状态
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach(window => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('network-mode-changed', { isProxy })
+      }
+    })
+
+    return true
+  } catch (error) {
+    console.error('[Tray] 切换网络模式失败:', error)
+    return false
+  }
+}
+
+// 从托盘应用直连配置
+async function applyDirectConfigFromTray(config) {
+  try {
+    // 引入必要的模块
+    const { getClaudeSettingsPath } = await import('./utils/pathUtils.js')
+    const { readJsonFile, writeJsonFile } = await import('./utils/fileUtils.js')
+
+    const settingsPath = getClaudeSettingsPath()
+
+    // 读取现有的settings.json
+    const readResult = await readJsonFile(settingsPath)
+    let settings = {}
+
+    if (readResult.success) {
+      settings = readResult.data
+    }
+
+    // 更新settings中的环境变量
+    if (!settings.env) {
+      settings.env = {}
+    }
+
+    settings.env.ANTHROPIC_AUTH_TOKEN = config.apiKey
+    settings.env.ANTHROPIC_BASE_URL = config.baseUrl
+
+    // 保存更新后的settings.json
+    await writeJsonFile(settingsPath, settings)
+
+    // 刷新悬浮窗
+    if (floatingWindow && !floatingWindow.isDestroyed()) {
+      const modelInfo = await FloatingService.getCurrentInfo()
+      floatingWindow.webContents.send('update-content', modelInfo)
+    }
+
+    return true
+  } catch (error) {
+    console.error('[Tray] 应用直连配置失败:', error)
+    return false
+  }
+}
+
+// 从托盘应用CCR模型
+async function applyCCRModelFromTray(model) {
+  try {
+    const { updateDefaultModel } = await import('./services/configService.js')
+    const result = await updateDefaultModel(model.key)
+
+    if (result.success) {
+      // 刷新悬浮窗
+      if (floatingWindow && !floatingWindow.isDestroyed()) {
+        const modelInfo = await FloatingService.getCurrentInfo()
+        floatingWindow.webContents.send('update-content', modelInfo)
+      }
+      return true
+    }
+
+    return false
+  } catch (error) {
+    console.error('[Tray] 应用CCR模型失败:', error)
+    return false
+  }
+}
+
+
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.

@@ -507,21 +507,21 @@ export function registerConfigHandlers() {
   ipcMain.handle('detect-network-mode', async () => {
     try {
       console.log('[ConfigHandler] 开始检测网络模式')
-      
+
       const configPath = getClaudeSettingsPath()
       const result = await readJsonFile(configPath)
-      
+
       if (result.success && result.data && result.data.env) {
         const baseUrl = result.data.env.ANTHROPIC_BASE_URL
         console.log('[ConfigHandler] 读取到 ANTHROPIC_BASE_URL:', baseUrl)
-        
+
         // CCR服务地址
         const CCR_SERVICE_URL = 'http://127.0.0.1:3456'
-        
+
         // 判断是否使用CCR服务
         const isUsingCCR = baseUrl === CCR_SERVICE_URL
         console.log('[ConfigHandler] 网络模式检测结果:', isUsingCCR ? '代理' : '直连')
-        
+
         return {
           success: true,
           isProxy: isUsingCCR,
@@ -549,7 +549,7 @@ export function registerConfigHandlers() {
   })
 
   // === 直连配置相关处理器 ===
-  
+
   // 获取直连配置文件路径
   ipcMain.handle('get-direct-config-path', async () => {
     try {
@@ -571,10 +571,10 @@ export function registerConfigHandlers() {
   ipcMain.handle('read-direct-config', async () => {
     try {
       console.log('[ConfigHandler] 开始读取直连配置文件')
-      
+
       const configPath = getDirectConfigPath()
       const result = await readJsonFile(configPath)
-      
+
       if (result.success) {
         console.log('[ConfigHandler] 直连配置文件读取成功')
         return {
@@ -589,10 +589,9 @@ export function registerConfigHandlers() {
             version: '1.0',
             directConfigs: [],
             settings: {
-              autoApplyDefault: true
             }
           }
-          
+
           console.log('[ConfigHandler] 直连配置文件不存在，返回默认配置')
           return {
             success: true,
@@ -601,7 +600,7 @@ export function registerConfigHandlers() {
             isDefault: true
           }
         }
-        
+
         return {
           success: false,
           error: result.error,
@@ -621,10 +620,10 @@ export function registerConfigHandlers() {
   ipcMain.handle('save-direct-config', async (event, configData) => {
     try {
       console.log('[ConfigHandler] 开始保存直连配置文件')
-      
+
       const configPath = getDirectConfigPath()
       const result = await writeJsonFile(configPath, configData)
-      
+
       if (result.success) {
         console.log('[ConfigHandler] 直连配置文件保存成功:', configPath)
         return {
@@ -653,28 +652,28 @@ export function registerConfigHandlers() {
   ipcMain.handle('apply-direct-config', async (event, directConfig) => {
     try {
       console.log('[ConfigHandler] 开始应用直连配置到Claude settings.json')
-      
+
       const settingsPath = getClaudeSettingsPath()
-      
+
       // 读取现有的settings.json
       const readResult = await readJsonFile(settingsPath)
       let settings = {}
-      
+
       if (readResult.success) {
         settings = readResult.data
       }
-      
+
       // 更新settings中的环境变量
       if (!settings.env) {
         settings.env = {}
       }
-      
-      settings.env.ANTHROPIC_API_KEY = directConfig.apiKey
+
+      settings.env.ANTHROPIC_AUTH_TOKEN = directConfig.apiKey
       settings.env.ANTHROPIC_BASE_URL = directConfig.baseUrl
-      
+
       // 保存更新后的settings.json
       const writeResult = await writeJsonFile(settingsPath, settings)
-      
+
       if (writeResult.success) {
         console.log('[ConfigHandler] 直连配置应用成功')
         return {
@@ -692,6 +691,113 @@ export function registerConfigHandlers() {
       return {
         success: false,
         error: `应用配置时发生错误: ${error.message}`
+      }
+    }
+  })
+
+  // 切换网络模式处理器
+  ipcMain.handle('switch-network-mode', async (event, isProxy) => {
+    try {
+      console.log('[ConfigHandler] 开始切换网络模式:', isProxy ? '代理模式' : '直连模式')
+
+      const settingsPath = getClaudeSettingsPath()
+
+      // 读取现有的settings.json
+      const readResult = await readJsonFile(settingsPath)
+      let settings = {}
+
+      if (readResult.success) {
+        settings = readResult.data
+      }
+
+      // 初始化env配置
+      if (!settings.env) {
+        settings.env = {}
+      }
+
+      if (isProxy) {
+        // 切换到代理模式
+        console.log('[ConfigHandler] 切换到代理模式，删除API Key，设置CCR服务地址')
+
+        // 删除API Key (代理模式下不需要)
+        delete settings.env.ANTHROPIC_AUTH_TOKEN
+        // 设置CCR服务地址
+        settings.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:3456'
+
+      } else {
+        // 切换到直连模式，需要从保存的直连配置中获取默认配置
+        console.log('[ConfigHandler] 切换到直连模式，尝试恢复直连配置')
+
+        try {
+          // 读取保存的直连配置
+          const directConfigPath = getDirectConfigPath()
+          const directConfigResult = await readJsonFile(directConfigPath)
+
+          if (directConfigResult.success && directConfigResult.data) {
+            const directData = directConfigResult.data
+            const configs = directData.directConfigs || []
+
+            // 查找默认配置
+            let defaultConfig = null
+
+            // 优先使用指定的默认配置
+            if (directData.settings && directData.settings.defaultConfig) {
+              defaultConfig = configs.find(c => c.name === directData.settings.defaultConfig)
+            }
+
+            // 如果没有指定默认配置，查找标记为默认的配置
+            if (!defaultConfig) {
+              defaultConfig = configs.find(c => c.isDefault)
+            }
+
+            // 如果还没有，使用第一个配置
+            if (!defaultConfig && configs.length > 0) {
+              defaultConfig = configs[0]
+            }
+
+            if (defaultConfig) {
+              console.log('[ConfigHandler] 使用直连配置:', defaultConfig.name)
+              settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+              settings.env.ANTHROPIC_BASE_URL = defaultConfig.baseUrl
+            } else {
+              console.log('[ConfigHandler] 未找到直连配置，使用默认官方API')
+              settings.env.ANTHROPIC_AUTH_TOKEN = ''
+              settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+            }
+          } else {
+            console.log('[ConfigHandler] 未找到保存的直连配置，使用默认官方API')
+            settings.env.ANTHROPIC_AUTH_TOKEN = ''
+            settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+          }
+        } catch (directError) {
+          console.error('[ConfigHandler] 读取直连配置失败:', directError)
+          // 使用默认配置
+          settings.env.ANTHROPIC_AUTH_TOKEN = ''
+          settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+        }
+      }
+
+      // 保存更新后的settings.json
+      const writeResult = await writeJsonFile(settingsPath, settings)
+
+      if (writeResult.success) {
+        console.log('[ConfigHandler] 网络模式切换成功')
+        return {
+          success: true,
+          mode: isProxy ? 'proxy' : 'direct',
+          message: `已切换到${isProxy ? '代理模式' : '直连模式'}`
+        }
+      } else {
+        return {
+          success: false,
+          error: `切换网络模式失败: ${writeResult.error}`
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 切换网络模式时发生错误:', error)
+      return {
+        success: false,
+        error: `切换网络模式时发生错误: ${error.message}`
       }
     }
   })
@@ -720,10 +826,11 @@ export function unregisterConfigHandlers() {
   ipcMain.removeHandler('read-file')
   ipcMain.removeHandler('write-file')
   ipcMain.removeHandler('detect-network-mode')
-  // 直连配置相关处理器
   ipcMain.removeHandler('get-direct-config-path')
   ipcMain.removeHandler('read-direct-config')
   ipcMain.removeHandler('save-direct-config')
   ipcMain.removeHandler('apply-direct-config')
-  console.log('[ConfigHandler] 配置处理器注销完成')
+  ipcMain.removeHandler('switch-network-mode')
+
+  console.log('[ConfigHandler] 配置处理器已注销')
 }

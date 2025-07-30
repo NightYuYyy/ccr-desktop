@@ -115,6 +115,24 @@ const api = {
     return ipcRenderer.invoke('detect-network-mode')
   },
 
+  // 切换网络模式
+  async switchNetworkMode(isProxy) {
+    return ipcRenderer.invoke('switch-network-mode', isProxy)
+  },
+
+  // {{ AURA-X: Add - 监听网络模式变更事件. Approval: 寸止确认. }}
+  // 监听网络模式变更事件
+  onNetworkModeChanged(callback) {
+    ipcRenderer.on('network-mode-changed', callback)
+  },
+
+  // 移除网络模式变更事件监听器
+  removeNetworkModeChangedListener(callback) {
+    ipcRenderer.removeListener('network-mode-changed', callback)
+  },
+
+
+
   // === 直连配置相关API ===
   async getDirectConfigPath() {
     return ipcRenderer.invoke('get-direct-config-path')

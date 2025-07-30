@@ -79,18 +79,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 // 组件事件
-const emit = defineEmits(['message'])
+const emit = defineEmits(['message', 'service-status-changed'])
 
 // 响应式数据
 const isStarting = ref(false)
 const isStopping = ref(false)
 const isCheckingStatus = ref(false)
-const isServiceRunning = ref(false)
 const serviceOutput = ref('')
 const lastCommandResult = ref(null)
+
+// 监听tab切换 - 通过props获取当前tab状态
+const props = defineProps({
+  activeTab: {
+    type: String,
+    default: ''
+  },
+  isServiceRunning: {
+    type: Boolean,
+    default: false
+  }
+})
+
+// 监听全局服务状态变化
+watch(() => props.isServiceRunning, (newStatus) => {
+  console.log('[ServiceTab] 收到全局服务状态更新:', newStatus)
+})
 
 // 命令输出监听器
 const handleCommandOutput = (event, { data }) => {
@@ -104,10 +120,9 @@ const handleCommandOutput = (event, { data }) => {
   })
 }
 
-// 组件挂载时监听命令输出并检查初始状态
+// 组件挂载时监听命令输出
 onMounted(() => {
   window.api.onCommandOutput(handleCommandOutput)
-  checkServiceStatus() // 检查初始服务状态
 })
 
 // 组件卸载时清理监听器
@@ -115,19 +130,6 @@ onUnmounted(() => {
   window.api.removeCommandOutputListener(handleCommandOutput)
 })
 
-// {{ AURA-X: Add - 统一的悬浮窗刷新方法，避免频繁调用. Approval: 寸止确认. }}
-let refreshTimeout = null
-const refreshFloatingWindowDelayed = () => {
-  // 清除之前的定时器，避免重复调用
-  if (refreshTimeout) {
-    clearTimeout(refreshTimeout)
-  }
-  // 延迟刷新，合并短时间内的多次调用
-  refreshTimeout = setTimeout(() => {
-    window.api.refreshFloatingWindow()
-    refreshTimeout = null
-  }, 200)
-}
 
 // 检查服务状态
 const checkServiceStatus = async () => {
@@ -144,14 +146,12 @@ const checkServiceStatus = async () => {
       // 如果输出包含"Running"且不包含"Not Running"，则认为服务正在运行
       const output = result.stdout.toLowerCase()
       const isRunning = output.includes('running') && !output.includes('not running')
-      isServiceRunning.value = isRunning
+      // 不再设置本地状态，由全局状态管理
       // {{ AURA-X: Modify - 状态检测完成后统一刷新悬浮窗. Approval: 寸止确认. }}
-      refreshFloatingWindowDelayed()
     } else {
       // 命令执行失败或无输出，认为服务未运行
-      isServiceRunning.value = false
+      // 不再设置本地状态，由全局状态管理
       // {{ AURA-X: Modify - 状态检测完成后统一刷新悬浮窗. Approval: 寸止确认. }}
-      refreshFloatingWindowDelayed()
     }
 
     console.log('[ServiceTab] 服务状态检查结果:', {
@@ -161,7 +161,7 @@ const checkServiceStatus = async () => {
     })
   } catch (error) {
     console.error('[ServiceTab] 检查服务状态异常:', error)
-    isServiceRunning.value = false
+    // 不再设置本地状态，由全局状态管理
   } finally {
     isCheckingStatus.value = false
   }
@@ -183,36 +183,34 @@ const startService = async () => {
       if (result.running) {
         serviceOutput.value += `\n✅ 服务启动成功，正在后台运行\n`
         emit('message', { text: 'CCR服务启动成功，正在后台运行', type: 'success' })
-        isServiceRunning.value = true // 更新服务状态
+        // 通知父组件更新全局状态
+        emit('service-status-changed', true)
         // {{ AURA-X: Modify - 服务启动后统一刷新悬浮窗. Approval: 寸止确认. }}
-        refreshFloatingWindowDelayed()
-      } else if (!result.hasOutput) {
+        } else if (!result.hasOutput) {
         serviceOutput.value += `✅ 命令执行成功（无输出）\n`
         emit('message', { text: '命令执行成功', type: 'success' })
         // 执行状态检查确认服务状态
         await checkServiceStatus()
         // {{ AURA-X: Modify - 执行状态检查后统一刷新悬浮窗. Approval: 寸止确认. }}
-        refreshFloatingWindowDelayed()
-      } else {
+        } else {
         emit('message', { text: '命令执行成功', type: 'success' })
         // 执行状态检查确认服务状态
         await checkServiceStatus()
         // {{ AURA-X: Modify - 执行状态检查后统一刷新悬浮窗. Approval: 寸止确认. }}
-        refreshFloatingWindowDelayed()
-      }
+        }
     } else {
       serviceOutput.value += `\n❌ 服务启动失败\n`
       if (result.error) {
         serviceOutput.value += `错误: ${result.error}\n`
       }
       emit('message', { text: `服务启动失败: ${result.error}`, type: 'error' })
-      isServiceRunning.value = false // 确保状态正确
+      // 不再设置本地状态，由全局状态管理 // 确保状态正确
     }
   } catch (error) {
     serviceOutput.value += `\n❌ 启动异常: ${error.message}\n`
     emit('message', { text: `启动异常: ${error.message}`, type: 'error' })
     console.error('启动服务异常:', error)
-    isServiceRunning.value = false
+    // 不再设置本地状态，由全局状态管理
   } finally {
     isStarting.value = false
   }
@@ -232,10 +230,10 @@ const stopService = async () => {
     if (result.success) {
       serviceOutput.value += `\n✅ 服务停止成功\n`
       emit('message', { text: 'CCR服务已停止', type: 'success' })
-      isServiceRunning.value = false // 更新服务状态
+      // 通知父组件更新全局状态
+      emit('service-status-changed', false)
               // {{ AURA-X: Modify - 服务停止后统一刷新悬浮窗. Approval: 寸止确认. }}
-        refreshFloatingWindowDelayed()
-    } else {
+      } else {
       serviceOutput.value += `\n❌ 服务停止失败\n`
       if (result.error) {
         serviceOutput.value += `错误: ${result.error}\n`

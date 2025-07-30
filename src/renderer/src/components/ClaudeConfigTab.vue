@@ -181,8 +181,6 @@ const loadDirectConfig = async () => {
 
       if (result.isDefault) {
         ElMessage.info('使用默认配置，暂无保存的直连配置')
-      } else {
-        ElMessage.success('直连配置加载成功')
       }
     } else {
       ElMessage.error(`加载配置失败: ${result.error}`)

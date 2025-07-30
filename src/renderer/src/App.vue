@@ -21,6 +21,11 @@ const selectedProvider = ref(null)
 const showProviderDialog = ref(false)
 const showAddProviderDialog = ref(false)
 const useProxy = ref(false)
+
+// 服务状态全局管理
+const isServiceRunning = ref(false)
+const isCheckingServiceStatus = ref(false)
+let servicePollingInterval = null
 const newProvider = ref({
   name: '',
   api_base_url: '',
@@ -51,10 +56,8 @@ onMounted(() => {
   // 通过主进程统一更新悬浮窗状态
   window.api.refreshFloatingWindow()
 
-  // 延迟检查服务状态来更新悬浮窗显示
-  setTimeout(() => {
-    checkServiceStatusAndUpdateFloatingWindow()
-  }, 1000)
+  // 启动服务状态轮询
+  startServicePolling()
 })
 
 // {{ AURA-X: Modify - 简化为直接触发主进程刷新，避免重复逻辑. Approval: 寸止确认. }}
@@ -63,8 +66,46 @@ const updateFloatingWindowWithCurrentInfo = async () => {
   window.api.refreshFloatingWindow()
 }
 
-// 保持向后兼容的函数名
-const checkServiceStatusAndUpdateFloatingWindow = updateFloatingWindowWithCurrentInfo
+// 服务状态轮询管理
+const startServicePolling = () => {
+  // 立即检查一次
+  checkGlobalServiceStatus()
+  
+  // 每30秒轮询一次
+  servicePollingInterval = setInterval(() => {
+    checkGlobalServiceStatus()
+  }, 30000)
+}
+
+const stopServicePolling = () => {
+  if (servicePollingInterval) {
+    clearInterval(servicePollingInterval)
+    servicePollingInterval = null
+  }
+}
+
+// 全局服务状态检查
+const checkGlobalServiceStatus = async () => {
+  if (isCheckingServiceStatus.value) return
+
+  isCheckingServiceStatus.value = true
+  try {
+    const result = await window.api.execCommand('ccr status')
+    if (result.success && result.stdout) {
+      const output = result.stdout.toLowerCase()
+      const isRunning = output.includes('running') && !output.includes('not running')
+      isServiceRunning.value = isRunning
+    } else {
+      isServiceRunning.value = false
+    }
+  } catch (error) {
+    console.error('[App] 服务状态检查异常:', error)
+    isServiceRunning.value = false
+  } finally {
+    isCheckingServiceStatus.value = false
+  }
+}
+
 
 // 组件卸载时清理监听器
 onUnmounted(() => {
@@ -74,6 +115,9 @@ onUnmounted(() => {
   // {{ AURA-X: Add - 清理网络模式变更事件监听器. Approval: 寸止确认. }}
   // 清理网络模式变更事件监听器
   window.api.removeNetworkModeChangedListener && window.api.removeNetworkModeChangedListener(handleNetworkModeChanged)
+
+  // 清理服务状态轮询
+  stopServicePolling()
 })
 
 // 处理Claude配置保存事件
@@ -526,6 +570,14 @@ const handleServiceMessage = ({ text, type }) => {
   showMessage(text, type)
 }
 
+// 处理服务状态变化
+const handleServiceStatusChange = (isRunning) => {
+  console.log('[App] 收到服务状态变化:', isRunning)
+  isServiceRunning.value = isRunning
+  // 更新悬浮窗
+  updateFloatingWindowWithCurrentInfo()
+}
+
 // {{ AURA-X: Modify - 完善全局代理切换逻辑，实现实际的网络模式切换. Approval: 寸止确认. }}
 // 处理全局代理切换
 const handleGlobalProxyChange = async (value) => {
@@ -657,7 +709,12 @@ const handleGlobalProxyChange = async (value) => {
 
       <!-- 启动服务Tab内容 -->
       <div v-if="activeTab === 'service'">
-        <ServiceTab @message="handleServiceMessage" />
+        <ServiceTab 
+          :active-tab="activeTab" 
+          :is-service-running="isServiceRunning"
+          @message="handleServiceMessage" 
+          @service-status-changed="handleServiceStatusChange"
+        />
       </div>
     </div>
 

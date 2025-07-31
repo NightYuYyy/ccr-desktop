@@ -5,7 +5,14 @@
       <div class="flex items-center justify-between mb-4">
         <div>
           <h3 class="text-lg font-semibold text-gray-900">CCR服务控制</h3>
-          <p class="text-sm text-gray-600 mt-1">启动和管理Claude Code Router服务</p>
+          <div class="flex items-center space-x-2 mt-1">
+            <el-tag type="info" size="small" class="w-20 text-center">
+              CCR: {{ ccrVersion }}
+            </el-tag>
+            <el-tag type="success" size="small" class="w-24 text-center">
+              Claude: {{ claudeVersion }}
+            </el-tag>
+          </div>
         </div>
         <div class="flex items-center space-x-3">
           <!-- 服务状态指示器 -->
@@ -97,6 +104,8 @@ const isStopping = ref(false)
 const isCheckingStatus = ref(false)
 const serviceOutput = ref('')
 const lastCommandResult = ref(null)
+const ccrVersion = ref('N/A')
+const claudeVersion = ref('N/A')
 
 // 监听tab切换 - 通过props获取当前tab状态
 const props = defineProps({
@@ -109,6 +118,26 @@ const props = defineProps({
     default: false
   }
 })
+
+// 获取版本号的通用函数
+const fetchVersion = async (command, regex, versionRef) => {
+  try {
+    const result = await window.api.execCommand(command)
+    if (result.success && result.stdout) {
+      const match = result.stdout.match(regex)
+      if (match && match[1]) {
+        versionRef.value = `v${match[1]}`
+      } else {
+        versionRef.value = '无法解析'
+      }
+    } else {
+      versionRef.value = '无法获取'
+    }
+  } catch (error) {
+    console.error(`获取版本失败 (${command}):`, error)
+    versionRef.value = '获取失败'
+  }
+}
 
 // 监听全局服务状态变化
 watch(
@@ -130,9 +159,11 @@ const handleCommandOutput = (event, { data }) => {
   })
 }
 
-// 组件挂载时监听命令输出
+// 组件挂载时监听命令输出并获取版本号
 onMounted(() => {
   window.api.onCommandOutput(handleCommandOutput)
+  fetchVersion('ccr -v', /version: (\d+\.\d+\.\d+)/, ccrVersion)
+  fetchVersion('claude -v', /(\d+\.\d+\.\d+)/, claudeVersion)
 })
 
 // 组件卸载时清理监听器

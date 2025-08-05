@@ -13,21 +13,18 @@ const execAsync = promisify(exec)
  */
 export class FloatingService {
   /**
-   * 获取当前模型信息和服务状态
-   * @returns {Promise<{modelName: string, isRunning: boolean}>}
+   * 获取当前模型信息
+   * @returns {Promise<{modelName: string}>}
    */
   static async getCurrentInfo() {
     try {
       // 获取当前模型名称
       const modelName = await this.getCurrentModelName()
 
-      // 检查服务状态
-      const isRunning = await this.checkServiceStatus()
-
-      return { modelName, isRunning }
+      return { modelName }
     } catch (error) {
       console.error('[FloatingService] 获取信息失败:', error)
-      return { modelName: '获取失败', isRunning: false }
+      return { modelName: '获取失败' }
     }
   }
 
@@ -89,10 +86,13 @@ export class FloatingService {
     try {
       const configResult = await readClaudeCodeRouterSettings()
 
-      if (configResult.success && configResult.data.Router?.default) {
-        const [providerName, model] = configResult.data.Router.default.split(',')
-        if (providerName && model) {
-          return `🔗 代理 | ${providerName}/${model}`
+      if (configResult.success && configResult.data) {
+        if (configResult.data.Router?.default) {
+          const [providerName, model] = configResult.data.Router.default.split(',')
+
+          if (providerName && model) {
+            return `🔗 代理 | ${providerName}/${model}`
+          }
         }
       }
 
@@ -116,7 +116,32 @@ export class FloatingService {
         const directData = directConfigResult.data
         const configs = directData.directConfigs || []
 
-        // 查找默认配置
+        // 获取当前Claude settings.json中的BASE_URL
+        const claudeSettingsPath = getClaudeSettingsPath()
+        const claudeSettingsResult = await readJsonFile(claudeSettingsPath)
+
+        let currentBaseUrl = null
+        if (claudeSettingsResult.success && claudeSettingsResult.data?.env?.ANTHROPIC_BASE_URL) {
+          currentBaseUrl = claudeSettingsResult.data.env.ANTHROPIC_BASE_URL
+          // 去掉末尾的斜杠以便匹配
+          currentBaseUrl = currentBaseUrl.replace(/\/$/, '')
+        }
+
+        // 查找匹配当前BASE_URL的配置
+        let currentConfig = null
+        if (currentBaseUrl) {
+          currentConfig = configs.find((c) => {
+            const configUrl = c.baseUrl.replace(/\/$/, '')
+            return configUrl === currentBaseUrl
+          })
+        }
+
+        // 如果找到匹配的配置，使用它
+        if (currentConfig) {
+          return `🔌 直连 | ${currentConfig.name}`
+        }
+
+        // 如果没有找到匹配的，按原来的逻辑查找默认配置
         let defaultConfig = null
 
         // 优先使用指定的默认配置
@@ -135,8 +160,6 @@ export class FloatingService {
         }
 
         if (defaultConfig) {
-          // {{ AURA-X: Fix - 直接使用配置名称而不是从URL推断. Approval: 寸止确认. }}
-          // 使用用户配置的名称，而不是从baseUrl推断的服务商名称
           return `🔌 直连 | ${defaultConfig.name}`
         }
       }

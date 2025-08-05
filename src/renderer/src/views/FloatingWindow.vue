@@ -4,9 +4,6 @@
     <div class="floating-content" @mousedown="startDrag">
       <div class="header">
         <div class="model-name">{{ modelName }}</div>
-        <div class="status-indicator">
-          <div class="status-dot" :class="statusClass"></div>
-        </div>
         <button class="close-btn" @click="closeWindow" @mousedown.stop>×</button>
       </div>
     </div>
@@ -18,23 +15,19 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 // {{ AURA-X: Modify - 分离模型名称和服务状态显示. Approval: 寸止确认. }}
 const modelName = ref('未设置模型')
-const statusClass = ref('status-unknown')
 let isDragging = false
 let lastX = 0
 let lastY = 0
 
 // 监听主进程发送的内容更新消息
 const handleUpdateContent = (event, data) => {
-  // {{ AURA-X: Modify - 始终显示模型名称，用圆点颜色表示服务状态. Approval: 寸止确认. }}
+  // {{ AURA-X: Modify - 始终显示模型名称. Approval: 寸止确认. }}
   if (data && typeof data === 'object') {
     // 始终显示模型名称
     modelName.value = data.modelName || '未设置模型'
-    // 用圆点颜色表示服务状态
-    statusClass.value = data.isRunning ? 'status-running' : 'status-stopped'
   } else if (typeof data === 'string') {
-    // 向后兼容字符串格式，但不包含服务状态文本
+    // 向后兼容字符串格式
     modelName.value = data || '未设置模型'
-    statusClass.value = 'status-unknown'
   }
 }
 
@@ -89,7 +82,6 @@ onMounted(() => {
   // {{ AURA-X: Modify - 组件挂载后立即请求最新模型信息. Approval: 寸止确认. }}
   // 设置初始状态为加载中
   modelName.value = '正在加载...'
-  statusClass.value = 'status-unknown'
 
   // 挂载完成后立即请求最新数据
   setTimeout(() => {
@@ -165,34 +157,6 @@ onUnmounted(() => {
   font-weight: 500;
   font-size: 11px;
   line-height: 1.2;
-}
-
-/* {{ AURA-X: Add - 服务状态圆点样式. Approval: 寸止确认. }} */
-.status-indicator {
-  display: flex;
-  align-items: center;
-  margin-right: 4px;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  transition: background-color 0.3s ease;
-}
-
-.status-running {
-  background-color: #10b981; /* 绿色：运行中 */
-  box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
-}
-
-.status-stopped {
-  background-color: #ef4444; /* 红色：已停止 */
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
-}
-
-.status-unknown {
-  background-color: #6b7280; /* 灰色：未知状态 */
 }
 
 .close-btn {

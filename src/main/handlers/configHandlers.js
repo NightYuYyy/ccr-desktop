@@ -680,6 +680,12 @@ export function registerConfigHandlers() {
 
       if (writeResult.success) {
         console.log('[ConfigHandler] 直连配置应用成功')
+
+        // 直连配置应用成功后刷新悬浮窗
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
         return {
           success: true,
           message: `直连配置 "${directConfig.name}" 已应用到Claude`
@@ -785,6 +791,12 @@ export function registerConfigHandlers() {
 
       if (writeResult.success) {
         console.log('[ConfigHandler] 网络模式切换成功')
+
+        // 网络模式切换成功后刷新悬浮窗
+        setImmediate(() => {
+          ipcMain.emit('refresh-floating-window')
+        })
+
         return {
           success: true,
           mode: isProxy ? 'proxy' : 'direct',

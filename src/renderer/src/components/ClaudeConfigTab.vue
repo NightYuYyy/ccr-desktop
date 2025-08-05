@@ -63,6 +63,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                  <el-dropdown-item command="copy">复制</el-dropdown-item>
                   <el-dropdown-item command="setDefault" :disabled="config.isDefault"
                     >设为默认</el-dropdown-item
                   >
@@ -122,11 +123,17 @@
     <!-- 添加/编辑配置弹窗 -->
     <el-dialog
       v-model="showConfigDialog"
-      :title="editingConfig ? '编辑配置' : '添加配置'"
+      :title="dialogTitle"
       width="500px"
-      @closed="resetConfigForm"
+      @closed="handleDialogClosed"
     >
-      <el-form :model="configForm" :rules="configRules" ref="configFormRef" label-width="80px">
+      <el-form
+        ref="configFormRef"
+        :model="configForm"
+        :rules="configRules"
+        label-width="100px"
+        label-position="left"
+      >
         <el-form-item label="配置名称" prop="name">
           <el-input v-model="configForm.name" placeholder="请输入配置名称" />
         </el-form-item>
@@ -152,7 +159,7 @@
       <template #footer>
         <div class="flex justify-end space-x-3">
           <el-button @click="showConfigDialog = false">取消</el-button>
-          <el-button type="primary" @click="saveConfig" :loading="saving">
+          <el-button type="primary" :loading="saving" @click="saveConfig">
             {{ editingConfig ? '更新' : '添加' }}
           </el-button>
         </div>
@@ -186,9 +193,30 @@ const configForm = reactive({
   isDefault: false
 })
 
+// 验证配置名称唯一性
+const validateNameUnique = (rule, value, callback) => {
+  if (!value) {
+    callback()
+    return
+  }
+
+  const existingConfig = directConfigs.value.find(
+    (config) => config.name === value && config.id !== editingConfig.value?.id
+  )
+
+  if (existingConfig) {
+    callback(new Error('配置名称已存在，请使用其他名称'))
+  } else {
+    callback()
+  }
+}
+
 // 表单验证规则
 const configRules = {
-  name: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
+  name: [
+    { required: true, message: '请输入配置名称', trigger: 'blur' },
+    { validator: validateNameUnique, trigger: 'blur' }
+  ],
   apiKey: [{ required: true, message: '请输入API Key', trigger: 'blur' }],
   baseUrl: [
     { required: true, message: '请输入API基础地址', trigger: 'blur' },
@@ -197,6 +225,7 @@ const configRules = {
 }
 
 const configFormRef = ref()
+const dialogTitle = ref('添加配置')
 
 // 加载直连配置
 const loadDirectConfig = async () => {
@@ -254,6 +283,7 @@ const saveDirectConfig = async () => {
 // 显示添加配置弹窗
 const showAddConfigDialog = () => {
   editingConfig.value = null
+  dialogTitle.value = '添加配置'
   resetConfigForm()
   showConfigDialog.value = true
 }
@@ -267,6 +297,16 @@ const resetConfigForm = () => {
 
   if (configFormRef.value) {
     configFormRef.value.resetFields()
+  }
+}
+
+// 处理弹窗关闭
+const handleDialogClosed = () => {
+  // 只有在编辑模式下才清空表单，新增模式保持原样
+  if (editingConfig.value) {
+    resetConfigForm()
+    editingConfig.value = null
+    dialogTitle.value = '添加配置'
   }
 }
 
@@ -343,6 +383,9 @@ const handleConfigAction = async (command, config) => {
     case 'edit':
       editConfig(config)
       break
+    case 'copy':
+      copyConfig(config)
+      break
     case 'setDefault':
       await setDefaultConfig(config)
       break
@@ -358,10 +401,22 @@ const handleConfigAction = async (command, config) => {
 // 编辑配置
 const editConfig = (config) => {
   editingConfig.value = config
+  dialogTitle.value = '编辑配置'
   configForm.name = config.name
   configForm.apiKey = config.apiKey
   configForm.baseUrl = config.baseUrl
   configForm.isDefault = config.isDefault
+  showConfigDialog.value = true
+}
+
+// 复制配置
+const copyConfig = (config) => {
+  editingConfig.value = null
+  dialogTitle.value = '复制配置'
+  configForm.name = `${config.name} - 副本`
+  configForm.apiKey = config.apiKey
+  configForm.baseUrl = config.baseUrl
+  configForm.isDefault = false
   showConfigDialog.value = true
 }
 

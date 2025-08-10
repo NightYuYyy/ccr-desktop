@@ -116,23 +116,27 @@ export class FloatingService {
         const directData = directConfigResult.data
         const configs = directData.directConfigs || []
 
-        // 获取当前Claude settings.json中的BASE_URL
+        // 获取当前Claude settings.json中的BASE_URL和API_KEY
         const claudeSettingsPath = getClaudeSettingsPath()
         const claudeSettingsResult = await readJsonFile(claudeSettingsPath)
 
         let currentBaseUrl = null
-        if (claudeSettingsResult.success && claudeSettingsResult.data?.env?.ANTHROPIC_BASE_URL) {
+        let currentApiKey = null
+        if (claudeSettingsResult.success && claudeSettingsResult.data?.env) {
           currentBaseUrl = claudeSettingsResult.data.env.ANTHROPIC_BASE_URL
+          currentApiKey = claudeSettingsResult.data.env.ANTHROPIC_AUTH_TOKEN
           // 去掉末尾的斜杠以便匹配
-          currentBaseUrl = currentBaseUrl.replace(/\/$/, '')
+          if (currentBaseUrl) {
+            currentBaseUrl = currentBaseUrl.replace(/\/$/, '')
+          }
         }
 
-        // 查找匹配当前BASE_URL的配置
+        // 查找匹配当前BASE_URL和API_KEY的配置
         let currentConfig = null
-        if (currentBaseUrl) {
+        if (currentBaseUrl && currentApiKey) {
           currentConfig = configs.find((c) => {
             const configUrl = c.baseUrl.replace(/\/$/, '')
-            return configUrl === currentBaseUrl
+            return configUrl === currentBaseUrl && c.apiKey === currentApiKey
           })
         }
 

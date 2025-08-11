@@ -28,9 +28,9 @@
     <div class="flex justify-end mb-4">
       <el-button
         type="success"
-        @click="saveAllConfig"
         :disabled="!isAnyModelChanged && !isThresholdChanged"
         size="default"
+        @click="saveAllConfig"
       >
         保存所有配置
       </el-button>

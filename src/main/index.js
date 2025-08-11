@@ -112,7 +112,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     // AURA-X: 优化配置管理面板的默认窗口尺寸
     width: 1280, // 增加宽度以支持3列卡片布局
-    height: 860, // 增加高度以减少滚动需求
+    height: 900, // 增加高度以减少滚动需求
     minWidth: 900, // 设置最小宽度，确保小屏幕下可用
     minHeight: 600, // 设置最小高度
     center: true, // 窗口居中显示

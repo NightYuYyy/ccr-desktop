@@ -5,7 +5,11 @@
       "WebFetch(domain:github.com)",
       "Bash(ls:*)",
       "Bash(cat:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm format)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm build:win:*)",
+      "Bash(pnpm lint:*)"
     ],
     "deny": []
   }

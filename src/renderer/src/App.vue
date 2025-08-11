@@ -21,6 +21,12 @@ const selectedProvider = ref(null)
 const showProviderDialog = ref(false)
 const showAddProviderDialog = ref(false)
 const useProxy = ref(false)
+const showClaudeSettingsDialog = ref(false)
+const claudeSettingsContent = ref('')
+const savingClaudeSettings = ref(false)
+const jsonError = ref('')
+const jsonValid = ref(false)
+const jsonEditor = ref(null)
 
 // 服务状态全局管理
 const isServiceRunning = ref(false)
@@ -581,6 +587,179 @@ const handleServiceStatusChange = (isRunning) => {
 }
 
 // {{ AURA-X: Modify - 完善全局代理切换逻辑，实现实际的网络模式切换. Approval: 寸止确认. }}
+// JSON 语法高亮
+const highlightJson = (jsonString) => {
+  if (!jsonString) return ''
+
+  return jsonString
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/(".*?"):/g, '<span class="json-key">$1</span>:')
+    .replace(/:\s*(true|false|null)/g, ': <span class="json-boolean">$1</span>')
+    .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+    .replace(/:\s*"([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+    .replace(/(\{|\}|\[|\]|,)/g, '<span class="json-bracket">$1</span>')
+}
+
+// 更新JSON编辑器内容
+const updateJsonEditor = () => {
+  if (jsonEditor.value) {
+    const highlighted = highlightJson(claudeSettingsContent.value)
+    jsonEditor.value.innerHTML =
+      highlighted || '<span class="json-placeholder">请输入有效的JSON配置...</span>'
+  }
+}
+
+// 处理JSON输入
+const handleJsonInput = (event) => {
+  const content = event.target.innerText || event.target.textContent
+  claudeSettingsContent.value = content
+  validateJson()
+}
+
+// 处理JSON粘贴
+const handleJsonPaste = (event) => {
+  event.preventDefault()
+  const pastedText = event.clipboardData.getData('text')
+  document.execCommand('insertText', false, pastedText)
+  setTimeout(() => {
+    claudeSettingsContent.value = jsonEditor.value.innerText || jsonEditor.value.textContent
+    validateJson()
+  }, 0)
+}
+
+// 处理键盘事件
+const handleJsonKeydown = (event) => {
+  // 支持Tab键缩进
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    document.execCommand('insertText', false, '  ')
+  }
+}
+
+// 验证JSON格式
+const validateJson = () => {
+  if (!claudeSettingsContent.value.trim()) {
+    jsonError.value = ''
+    jsonValid.value = false
+    return
+  }
+
+  try {
+    JSON.parse(claudeSettingsContent.value)
+    jsonError.value = ''
+    jsonValid.value = true
+  } catch (error) {
+    jsonError.value = `JSON 格式错误: ${error.message}`
+    jsonValid.value = false
+  }
+}
+
+// 格式化JSON
+const formatJson = () => {
+  if (!claudeSettingsContent.value.trim()) return
+
+  try {
+    const parsed = JSON.parse(claudeSettingsContent.value)
+    const formatted = JSON.stringify(parsed, null, 2)
+    claudeSettingsContent.value = formatted
+    updateJsonEditor()
+    validateJson()
+    showMessage('JSON 已格式化', 'success')
+  } catch {
+    showMessage('JSON 格式错误，无法格式化', 'error')
+  }
+}
+
+// 编辑Claude settings.json
+const editClaudeSettings = async () => {
+  try {
+    // 获取Claude settings.json文件路径
+    const pathResult = await window.api.getClaudeSettingsPath()
+    if (!pathResult.success) {
+      showMessage(`获取配置文件路径失败: ${pathResult.error}`, 'error')
+      return
+    }
+
+    // 读取settings.json文件
+    const readResult = await window.api.readFile(pathResult.data)
+    if (readResult.success) {
+      // 格式化JSON并显示
+      claudeSettingsContent.value = JSON.stringify(readResult.data, null, 2)
+      jsonError.value = ''
+      jsonValid.value = true
+      showClaudeSettingsDialog.value = true
+
+      // 等待DOM更新后设置编辑器内容
+      setTimeout(() => {
+        updateJsonEditor()
+      }, 100)
+    } else {
+      showMessage(`读取配置文件失败: ${readResult.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`编辑配置文件异常: ${error.message}`, 'error')
+    console.error('编辑Claude settings异常:', error)
+  }
+}
+
+// 保存Claude settings.json
+const saveClaudeSettings = async () => {
+  if (!claudeSettingsContent.value.trim()) {
+    showMessage('配置内容不能为空', 'error')
+    return
+  }
+
+  // 验证JSON格式
+  if (!jsonValid.value || jsonError.value) {
+    showMessage('JSON格式错误，请修正后再保存', 'error')
+    return
+  }
+
+  try {
+    // 验证JSON格式
+    const parsedContent = JSON.parse(claudeSettingsContent.value)
+
+    savingClaudeSettings.value = true
+
+    // 获取文件路径
+    const pathResult = await window.api.getClaudeSettingsPath()
+    if (!pathResult.success) {
+      showMessage(`获取配置文件路径失败: ${pathResult.error}`, 'error')
+      return
+    }
+
+    // 保存文件
+    const saveResult = await window.api.writeFile(pathResult.data, parsedContent)
+    if (saveResult.success) {
+      showMessage('Claude settings.json 已保存', 'success')
+      showClaudeSettingsDialog.value = false
+
+      // 重新检测网络模式
+      detectNetworkMode()
+
+      // 更新悬浮窗
+      updateFloatingWindowWithCurrentInfo()
+
+      // 发送配置保存事件
+      window.dispatchEvent(new CustomEvent('claude-config-saved'))
+    } else {
+      showMessage(`保存配置文件失败: ${saveResult.error}`, 'error')
+    }
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      showMessage('JSON格式错误，请检查配置内容', 'error')
+      console.error('JSON解析错误:', err)
+    } else {
+      showMessage(`保存配置文件异常: ${err.message}`, 'error')
+      console.error('保存Claude settings异常:', err)
+    }
+  } finally {
+    savingClaudeSettings.value = false
+  }
+}
+
 // 处理全局代理切换
 const handleGlobalProxyChange = async (value) => {
   try {
@@ -655,8 +834,8 @@ const handleGlobalProxyChange = async (value) => {
               <el-button
                 v-if="activeTab === 'config'"
                 type="success"
-                @click="showAddProvider"
                 class="flex-1 sm:flex-none"
+                @click="showAddProvider"
               >
                 添加服务商
               </el-button>
@@ -664,26 +843,34 @@ const handleGlobalProxyChange = async (value) => {
                 v-if="activeTab === 'config'"
                 type="primary"
                 :loading="isLoading"
-                @click="refreshConfig"
                 class="flex-1 sm:flex-none"
+                @click="refreshConfig"
               >
                 {{ isLoading ? '加载中...' : '刷新配置' }}
               </el-button>
               <el-button
                 v-if="activeTab === 'config'"
                 type="info"
-                @click="openConfigFolder"
                 class="flex-1 sm:flex-none"
+                @click="openConfigFolder"
               >
                 打开CCR配置文件夹
               </el-button>
               <el-button
                 v-if="activeTab === 'claude'"
                 type="info"
-                @click="openClaudeConfigFolder"
                 class="flex-1 sm:flex-none"
+                @click="openClaudeConfigFolder"
               >
                 打开Claude配置文件夹
+              </el-button>
+              <el-button
+                v-if="activeTab === 'claude'"
+                type="primary"
+                class="flex-1 sm:flex-none"
+                @click="editClaudeSettings"
+              >
+                编辑settings.json
               </el-button>
             </template>
           </div>
@@ -744,9 +931,9 @@ const handleGlobalProxyChange = async (value) => {
       :width="'90vw'"
       :style="{ 'max-width': '600px' }"
       :lock-scroll="false"
-      @closed="closeProviderDialog"
       append-to-body
       height="600px"
+      @closed="closeProviderDialog"
     >
       <div v-if="selectedProvider" class="space-y-4 h-[500px] flex flex-col">
         <!-- 基本信息 -->
@@ -790,8 +977,8 @@ const handleGlobalProxyChange = async (value) => {
                   type="danger"
                   size="small"
                   text
-                  @click="removeModelFromProvider(model)"
                   class="flex-shrink-0"
+                  @click="removeModelFromProvider(model)"
                 >
                   删除
                 </el-button>
@@ -803,15 +990,15 @@ const handleGlobalProxyChange = async (value) => {
             <el-input
               v-model="newModelInput"
               placeholder="输入新模型名称"
-              @keyup.enter="addModelToProvider"
               size="small"
               class="flex-1"
+              @keyup.enter="addModelToProvider"
             />
             <el-button
               type="primary"
               size="small"
-              @click="addModelToProvider"
               class="flex-shrink-0"
+              @click="addModelToProvider"
             >
               添加
             </el-button>
@@ -832,7 +1019,7 @@ const handleGlobalProxyChange = async (value) => {
 
       <template #footer>
         <div class="flex justify-between">
-          <el-button type="danger" @click="deleteProvider" class="mr-auto">删除服务</el-button>
+          <el-button type="danger" class="mr-auto" @click="deleteProvider">删除服务</el-button>
           <div class="flex space-x-3">
             <el-button @click="closeProviderDialog">取消</el-button>
             <el-button type="primary" @click="saveProviderConfig">保存配置</el-button>
@@ -848,9 +1035,9 @@ const handleGlobalProxyChange = async (value) => {
       :width="'90vw'"
       :style="{ 'max-width': '600px' }"
       :lock-scroll="false"
-      @closed="closeAddProviderDialog"
       append-to-body
       height="600px"
+      @closed="closeAddProviderDialog"
     >
       <div class="space-y-4 h-[500px] flex flex-col">
         <!-- 基本信息 -->
@@ -894,8 +1081,8 @@ const handleGlobalProxyChange = async (value) => {
                   type="danger"
                   size="small"
                   text
-                  @click="removeModelFromNewProvider(model)"
                   class="flex-shrink-0"
+                  @click="removeModelFromNewProvider(model)"
                 >
                   删除
                 </el-button>
@@ -907,14 +1094,14 @@ const handleGlobalProxyChange = async (value) => {
             <el-input
               v-model="newModelInput"
               placeholder="输入新模型名称 (按回车添加)"
-              @keyup.enter="addModelToNewProvider"
               class="flex-1"
+              @keyup.enter="addModelToNewProvider"
             />
             <el-button
               type="primary"
               size="small"
-              @click="addModelToNewProvider"
               class="flex-shrink-0"
+              @click="addModelToNewProvider"
             >
               添加
             </el-button>
@@ -937,6 +1124,134 @@ const handleGlobalProxyChange = async (value) => {
         <div class="flex justify-end space-x-3">
           <el-button @click="closeAddProviderDialog">取消</el-button>
           <el-button type="primary" @click="saveNewProvider">保存配置</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑Claude settings.json弹窗 -->
+    <el-dialog
+      v-model="showClaudeSettingsDialog"
+      title="编辑Claude settings.json"
+      width="90vw"
+      :style="{ 'max-width': '800px' }"
+      :lock-scroll="true"
+      append-to-body
+      :close-on-click-modal="false"
+      class="claude-settings-dialog"
+    >
+      <div class="claude-settings-content">
+        <div class="warning-section">
+          <div class="flex items-start space-x-3">
+            <svg
+              class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <div class="text-sm text-yellow-800">
+              <p class="font-medium mb-1">注意事项</p>
+              <ul class="list-disc list-inside space-y-1 text-xs">
+                <li>此文件包含Claude桌面应用的核心配置，请谨慎修改</li>
+                <li>修改后可能需要重启Claude应用才能生效</li>
+                <li>请确保JSON格式正确，否则可能导致配置文件损坏</li>
+                <li>建议在修改前备份原始配置文件</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-section">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700">settings.json 内容</label>
+            <div class="flex items-center space-x-2">
+              <el-button
+                type="text"
+                size="small"
+                :disabled="!claudeSettingsContent.trim()"
+                class="text-blue-600 hover:text-blue-800"
+                @click="formatJson"
+              >
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                格式化
+              </el-button>
+              <el-button
+                type="text"
+                size="small"
+                :disabled="!claudeSettingsContent.trim()"
+                class="text-green-600 hover:text-green-800"
+                @click="validateJson"
+              >
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                验证
+              </el-button>
+            </div>
+          </div>
+
+          <!-- JSON 编辑器 -->
+          <div class="json-editor-container">
+            <div
+              ref="jsonEditor"
+              class="json-editor"
+              :class="{ 'json-error': jsonError, 'json-success': jsonValid }"
+              contenteditable="true"
+              spellcheck="false"
+              @input="handleJsonInput"
+              @paste="handleJsonPaste"
+              @keydown="handleJsonKeydown"
+            ></div>
+
+            <!-- 错误提示 -->
+            <div v-if="jsonError" class="json-error-message">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              {{ jsonError }}
+            </div>
+
+            <!-- 成功提示 -->
+            <div v-if="jsonValid && !jsonError" class="json-success-message">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              JSON 格式正确
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <el-button @click="showClaudeSettingsDialog = false">取消</el-button>
+          <el-button type="primary" :loading="savingClaudeSettings" @click="saveClaudeSettings">
+            {{ savingClaudeSettings ? '保存中...' : '保存' }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -973,5 +1288,158 @@ const handleGlobalProxyChange = async (value) => {
 
 :deep(.ccr-tabs .el-tabs__active-bar) {
   background-color: #3b82f6;
+}
+
+/* Claude settings dialog specific styles */
+:deep(.claude-settings-dialog) {
+  overflow: hidden;
+}
+
+:deep(.claude-settings-dialog .el-dialog) {
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+:deep(.claude-settings-dialog .el-dialog__body) {
+  padding: 20px;
+  overflow: hidden;
+}
+
+.claude-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.warning-section {
+  flex-shrink: 0;
+}
+
+.editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+:deep(.claude-settings-textarea) {
+  height: 100%;
+  min-height: 400px;
+}
+
+/* JSON 编辑器样式 */
+.json-editor-container {
+  position: relative;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.json-editor-container:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.json-editor {
+  min-height: 400px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 16px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #f8fafc;
+  color: #374151;
+  white-space: pre-wrap;
+  outline: none;
+  tab-size: 2;
+}
+
+.json-editor.json-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.json-editor.json-success {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.json-editor .json-placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.json-editor .json-key {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.json-editor .json-string {
+  color: #059669;
+}
+
+.json-editor .json-number {
+  color: #2563eb;
+}
+
+.json-editor .json-boolean {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.json-editor .json-bracket {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.json-error-message {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #fecaca;
+}
+
+.json-success-message {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #bbf7d0;
+}
+
+/* 滚动条样式 */
+.json-editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.json-editor::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.json-editor::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.json-editor::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 </style>

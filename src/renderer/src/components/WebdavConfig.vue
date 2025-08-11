@@ -1,9 +1,9 @@
 <template>
   <div class="webdav-config-form">
     <el-form
+      ref="formRef"
       :model="webdavConfig"
       :rules="rules"
-      ref="formRef"
       label-width="120px"
       label-position="left"
     >
@@ -29,8 +29,8 @@
       </el-form-item>
 
       <el-form-item>
-        <el-button type="primary" @click="saveConfig" :loading="saving"> 保存配置 </el-button>
-        <el-button @click="testConnection" :loading="testing" style="margin-left: 12px">
+        <el-button type="primary" :loading="saving" @click="saveConfig"> 保存配置 </el-button>
+        <el-button :loading="testing" style="margin-left: 12px" @click="testConnection">
           测试连接
         </el-button>
       </el-form-item>

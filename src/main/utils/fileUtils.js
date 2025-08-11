@@ -1,6 +1,7 @@
 import { readFile, writeFile, access, constants, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { dirname } from 'path'
+import { safeParseJson, safeStringifyJson } from './jsonUtils.js'
 
 /**
  * 检查文件是否存在
@@ -33,7 +34,7 @@ export async function isFileReadable(filePath) {
 /**
  * 安全读取JSON文件
  * @param {string} filePath - JSON文件路径
- * @returns {Promise&lt;{success: boolean, data?: any, error?: string}&gt;} 读取结果
+ * @returns {Promise<{success: boolean, data?: any, error?: string}>} 读取结果
  */
 export async function readJsonFile(filePath) {
   console.log('filePath', filePath)
@@ -57,21 +58,20 @@ export async function readJsonFile(filePath) {
     // 读取文件内容
     const content = await readFile(filePath, 'utf-8')
 
-    // 解析JSON
-    const data = JSON.parse(content)
-
-    return {
-      success: true,
-      data
-    }
-  } catch (error) {
-    if (error instanceof SyntaxError) {
+    // 使用统一的JSON工具函数解析JSON
+    const parseResult = safeParseJson(content)
+    if (!parseResult.success) {
       return {
         success: false,
-        error: `配置文件格式错误，请检查JSON语法: ${error.message}`
+        error: `配置文件格式错误，请检查JSON语法: ${parseResult.error}`
       }
     }
 
+    return {
+      success: true,
+      data: parseResult.data
+    }
+  } catch (error) {
     return {
       success: false,
       error: `读取配置文件失败: ${error.message}`
@@ -102,11 +102,17 @@ export async function writeJsonFile(filePath, data) {
       await mkdir(dir, { recursive: true })
     }
 
-    // 将数据转换为格式化的JSON字符串
-    const content = JSON.stringify(data, null, 2)
+    // 使用统一的JSON工具函数格式化数据
+    const stringifyResult = safeStringifyJson(data)
+    if (!stringifyResult.success) {
+      return {
+        success: false,
+        error: `数据序列化失败: ${stringifyResult.error}`
+      }
+    }
 
     // 写入文件
-    await writeFile(filePath, content, 'utf-8')
+    await writeFile(filePath, stringifyResult.formatted, 'utf-8')
 
     return {
       success: true

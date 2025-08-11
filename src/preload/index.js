@@ -5,32 +5,40 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   // 配置文件相关API
   async readSettings() {
-    return ipcRenderer.invoke('read-settings')
+    const result = await ipcRenderer.invoke('read-settings')
+    return result.success ? result.data : result
   },
 
   async getConfigPaths() {
-    return ipcRenderer.invoke('get-config-paths')
+    const result = await ipcRenderer.invoke('get-config-paths')
+    return result.success ? result.data : result
   },
 
   async openConfigFolder() {
-    return ipcRenderer.invoke('open-config-folder')
+    const result = await ipcRenderer.invoke('open-config-folder')
+    return result.success ? result.data : result
   },
 
   async openClaudeConfigFolder() {
-    return ipcRenderer.invoke('open-claude-config-folder')
+    const result = await ipcRenderer.invoke('open-claude-config-folder')
+    return result.success ? result.data : result
   },
 
   async saveSettings(configData) {
-    return ipcRenderer.invoke('save-settings', configData)
+    const result = await ipcRenderer.invoke('save-settings', configData)
+    return result.success ? result.data : result
   },
 
   async execCommand(command) {
-    return ipcRenderer.invoke('exec-command', command)
+    const result = await ipcRenderer.invoke('exec-command', command)
+    return result.success ? result.data : result
   },
 
   // 监听命令实时输出
   onCommandOutput(callback) {
-    ipcRenderer.on('command-output', callback)
+    ipcRenderer.on('command-output', (event, data) => {
+      callback(data)
+    })
   },
 
   // 移除命令输出监听器
@@ -40,44 +48,54 @@ const api = {
 
   // === 细粒度配置操作API ===
   async addProvider(providerData) {
-    return ipcRenderer.invoke('add-provider', providerData)
+    const result = await ipcRenderer.invoke('add-provider', providerData)
+    return result.success ? result.data : result
   },
 
   async updateProvider(providerName, updatedData) {
-    return ipcRenderer.invoke('update-provider', providerName, updatedData)
+    const result = await ipcRenderer.invoke('update-provider', providerName, updatedData)
+    return result.success ? result.data : result
   },
 
   async deleteProvider(providerName) {
-    return ipcRenderer.invoke('delete-provider', providerName)
+    const result = await ipcRenderer.invoke('delete-provider', providerName)
+    return result.success ? result.data : result
   },
 
   async updateDefaultModel(defaultModel) {
-    return ipcRenderer.invoke('update-default-model', defaultModel)
+    const result = await ipcRenderer.invoke('update-default-model', defaultModel)
+    return result.success ? result.data : result
   },
 
   async updateRouterModel(modelType, modelValue) {
-    return ipcRenderer.invoke('update-router-model', modelType, modelValue)
+    const result = await ipcRenderer.invoke('update-router-model', modelType, modelValue)
+    return result.success ? result.data : result
   },
 
   async updateLongContextThreshold(threshold) {
-    return ipcRenderer.invoke('update-long-context-threshold', threshold)
+    const result = await ipcRenderer.invoke('update-long-context-threshold', threshold)
+    return result.success ? result.data : result
   },
 
   // === Claude配置相关API ===
   async getHomeDir() {
-    return ipcRenderer.invoke('get-home-dir')
+    const result = await ipcRenderer.invoke('get-home-dir')
+    return result.success ? result.data : result
   },
 
   async getClaudeSettingsPath() {
-    return ipcRenderer.invoke('get-claude-settings-path')
+    const result = await ipcRenderer.invoke('get-claude-settings-path')
+    return result.success ? result.data : result
   },
 
   async readFile(filePath) {
-    return ipcRenderer.invoke('read-file', filePath)
+    const result = await ipcRenderer.invoke('read-file', filePath)
+    return result.success ? result.data : result
   },
 
   async writeFile(filePath, content) {
-    return ipcRenderer.invoke('write-file', filePath, content)
+    const result = await ipcRenderer.invoke('write-file', filePath, content)
+    return result.success ? result.data : result
   },
 
   // 悬浮窗相关API
@@ -102,7 +120,9 @@ const api = {
 
   // 监听悬浮窗内容更新
   onUpdateContent(callback) {
-    ipcRenderer.on('update-content', callback)
+    ipcRenderer.on('update-content', (event, data) => {
+      callback(data)
+    })
   },
 
   // 移除悬浮窗内容更新监听器
@@ -112,18 +132,22 @@ const api = {
 
   // 检测网络模式
   async detectNetworkMode() {
-    return ipcRenderer.invoke('detect-network-mode')
+    const result = await ipcRenderer.invoke('detect-network-mode')
+    return result.success ? result.data : result
   },
 
   // 切换网络模式
   async switchNetworkMode(isProxy) {
-    return ipcRenderer.invoke('switch-network-mode', isProxy)
+    const result = await ipcRenderer.invoke('switch-network-mode', isProxy)
+    return result.success ? result.data : result
   },
 
   // {{ AURA-X: Add - 监听网络模式变更事件. Approval: 寸止确认. }}
   // 监听网络模式变更事件
   onNetworkModeChanged(callback) {
-    ipcRenderer.on('network-mode-changed', callback)
+    ipcRenderer.on('network-mode-changed', (event, data) => {
+      callback(data)
+    })
   },
 
   // 移除网络模式变更事件监听器
@@ -133,40 +157,49 @@ const api = {
 
   // === 直连配置相关API ===
   async getDirectConfigPath() {
-    return ipcRenderer.invoke('get-direct-config-path')
+    const result = await ipcRenderer.invoke('get-direct-config-path')
+    return result.success ? result.data : result
   },
 
   async readDirectConfig() {
-    return ipcRenderer.invoke('read-direct-config')
+    const result = await ipcRenderer.invoke('read-direct-config')
+    return result.success ? result.data : result
   },
 
   async saveDirectConfig(configData) {
-    return ipcRenderer.invoke('save-direct-config', configData)
+    const result = await ipcRenderer.invoke('save-direct-config', configData)
+    return result.success ? result.data : result
   },
 
   async applyDirectConfig(directConfig) {
-    return ipcRenderer.invoke('apply-direct-config', directConfig)
+    const result = await ipcRenderer.invoke('apply-direct-config', directConfig)
+    return result.success ? result.data : result
   },
 
   // === WebDAV相关API ===
   async setWebdavConfig(config) {
-    return ipcRenderer.invoke('set-webdav-config', config)
+    const result = await ipcRenderer.invoke('set-webdav-config', config)
+    return result.success ? result.data : result
   },
 
   async getWebdavConfig() {
-    return ipcRenderer.invoke('get-webdav-config')
+    const result = await ipcRenderer.invoke('get-webdav-config')
+    return result.success ? result.data : result
   },
 
   async testWebdavConnection() {
-    return ipcRenderer.invoke('test-webdav-connection')
+    const result = await ipcRenderer.invoke('test-webdav-connection')
+    return result.success ? result.data : result
   },
 
   async backupDataWebdav() {
-    return ipcRenderer.invoke('backup-data-webdav')
+    const result = await ipcRenderer.invoke('backup-data-webdav')
+    return result.success ? result.data : result
   },
 
   async listWebdavBackups() {
-    return ipcRenderer.invoke('list-webdav-backups')
+    const result = await ipcRenderer.invoke('list-webdav-backups')
+    return result.success ? result.data : result
   }
 }
 

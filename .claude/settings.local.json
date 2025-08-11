@@ -10,7 +10,8 @@
       "Bash(pnpm lint)",
       "Bash(pnpm build:win:*)",
       "Bash(pnpm lint:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(pnpm exec eslint --fix src/renderer/src/components/BackupDataTab.vue src/renderer/src/components/ClaudeConfigTab.vue src/renderer/src/components/WebdavConfig.vue)"
     ],
     "deny": []
   }

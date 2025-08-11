@@ -1,7 +1,4 @@
-import {
-  getClaudeCodeRouterSettingsPath,
-  getClaudeCodeRouterConfigDir
-} from '../utils/pathUtils.js'
+import { ConfigManager } from './configManager.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { backupDataToWebdav } from './webdavService.js'
 import path from 'path'
@@ -30,11 +27,12 @@ const DEFAULT_CONFIG_TEMPLATE = {
 
 /**
  * 读取 Claude Code Router 配置文件
- * @returns {Promise&lt;{success: boolean, data?: any, error?: string, configPath?: string}&gt;} 配置读取结果
+ * @returns {Promise<{success: boolean, data?: any, error?: string, configPath?: string}>} 配置读取结果
  */
 export async function readClaudeCodeRouterSettings() {
-  const configPath = getClaudeCodeRouterSettingsPath()
-  const configDir = getClaudeCodeRouterConfigDir()
+  const paths = ConfigManager.getCCRPaths()
+  const configPath = paths.configPath
+  const configDir = paths.configDir
 
   try {
     const result = await readJsonFile(configPath)
@@ -79,10 +77,7 @@ export async function readClaudeCodeRouterSettings() {
  * @returns {{configPath: string, configDir: string}} 路径信息
  */
 export function getConfigPaths() {
-  return {
-    configPath: getClaudeCodeRouterSettingsPath(),
-    configDir: getClaudeCodeRouterConfigDir()
-  }
+  return ConfigManager.getCCRPaths()
 }
 
 /**
@@ -91,7 +86,7 @@ export function getConfigPaths() {
  * @returns {Promise<{success: boolean, error?: string, configPath?: string}>} 保存结果
  */
 export async function saveClaudeCodeRouterSettings(configData) {
-  const configPath = getClaudeCodeRouterSettingsPath()
+  const configPath = ConfigManager.getCCRPaths().configPath
 
   try {
     const result = await writeJsonFile(configPath, configData)
@@ -487,7 +482,7 @@ export async function backupData(options = {}) {
       return await backupDataToWebdav()
     } else {
       // 本地备份
-      const configDir = getClaudeCodeRouterConfigDir()
+      const configDir = ConfigManager.getCCRPaths().configDir
       const backupDir = path.join(configDir, 'backups')
 
       // 确保备份目录存在

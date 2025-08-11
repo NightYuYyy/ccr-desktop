@@ -35,7 +35,7 @@
       <div class="mt-8 pt-6 border-t border-gray-200">
         <h3 class="text-lg font-semibold mb-3">备份管理</h3>
         <p class="text-gray-600 mb-4">管理现有的备份文件，查看历史备份或恢复到之前的配置状态。</p>
-        <el-button type="info" @click="viewBackupList" :loading="loadingBackups">
+        <el-button type="info" :loading="loadingBackups" @click="viewBackupList">
           查看备份列表
         </el-button>
       </div>
@@ -65,8 +65,8 @@
               <el-button
                 type="primary"
                 size="small"
-                @click="restoreBackup(scope.row)"
                 :loading="restoringBackup === scope.row.path"
+                @click="restoreBackup(scope.row)"
               >
                 恢复
               </el-button>

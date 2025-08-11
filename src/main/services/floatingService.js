@@ -1,6 +1,5 @@
 import { readClaudeCodeRouterSettings } from './configService.js'
-// {{ AURA-X: Add - 导入网络模式检测相关功能. Approval: 寸止确认. }}
-import { getClaudeSettingsPath, getDirectConfigPath } from '../utils/pathUtils.js'
+import { ConfigManager } from './configManager.js'
 import { readJsonFile } from '../utils/fileUtils.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -57,7 +56,7 @@ export class FloatingService {
    */
   static async detectNetworkMode() {
     try {
-      const configPath = getClaudeSettingsPath()
+      const configPath = ConfigManager.getClaudeSettingsPath()
       const result = await readJsonFile(configPath)
 
       if (result.success && result.data && result.data.env) {
@@ -109,7 +108,7 @@ export class FloatingService {
    */
   static async getDirectModelName() {
     try {
-      const directConfigPath = getDirectConfigPath()
+      const directConfigPath = ConfigManager.getDirectConfigPath()
       const directConfigResult = await readJsonFile(directConfigPath)
 
       if (directConfigResult.success && directConfigResult.data) {
@@ -117,7 +116,7 @@ export class FloatingService {
         const configs = directData.directConfigs || []
 
         // 获取当前Claude settings.json中的BASE_URL和API_KEY
-        const claudeSettingsPath = getClaudeSettingsPath()
+        const claudeSettingsPath = ConfigManager.getClaudeSettingsPath()
         const claudeSettingsResult = await readJsonFile(claudeSettingsPath)
 
         let currentBaseUrl = null

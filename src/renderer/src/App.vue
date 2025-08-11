@@ -6,6 +6,8 @@ import ServiceTab from './components/ServiceTab.vue'
 import ClaudeConfigTab from './components/ClaudeConfigTab.vue'
 import MultiModelConfig from './components/MultiModelConfig.vue'
 import BackupDataTab from './components/BackupDataTab.vue'
+import { useClaudeSettings } from './composables/useClaudeSettings.js'
+import { deepCloneJson } from './utils/jsonUtils.js'
 
 // 统一消息管理函数 - 确保同时只显示一条消息
 const showMessage = (message, type = 'info') => {
@@ -22,12 +24,23 @@ const selectedProvider = ref(null)
 const showProviderDialog = ref(false)
 const showAddProviderDialog = ref(false)
 const useProxy = ref(false)
-const showClaudeSettingsDialog = ref(false)
-const claudeSettingsContent = ref('')
-const savingClaudeSettings = ref(false)
-const jsonError = ref('')
-const jsonValid = ref(false)
-const jsonEditor = ref(null)
+
+// 使用Claude配置编辑相关的可复用逻辑
+const {
+  showClaudeSettingsDialog,
+  claudeSettingsContent,
+  savingClaudeSettings,
+  jsonError,
+  jsonValid,
+  jsonEditor,
+  handleJsonInput,
+  handleJsonPaste,
+  handleJsonKeydown,
+  validateJson,
+  formatJson,
+  editClaudeSettings,
+  saveClaudeSettings
+} = useClaudeSettings()
 
 // 服务状态全局管理
 const isServiceRunning = ref(false)
@@ -67,10 +80,14 @@ onMounted(() => {
   startServicePolling()
 })
 
-// {{ AURA-X: Modify - 简化为直接触发主进程刷新，避免重复逻辑. Approval: 寸止确认. }}
+// 统一使用FloatingService更新悬浮窗信息
 const updateFloatingWindowWithCurrentInfo = async () => {
-  // 直接触发主进程刷新，由主进程统一处理模型信息获取和服务状态检测
-  window.api.refreshFloatingWindow()
+  try {
+    // 通过主进程统一更新悬浮窗状态
+    await window.api.refreshFloatingWindow()
+  } catch (error) {
+    console.error('[App] 更新悬浮窗失败:', error)
+  }
 }
 
 // 服务状态轮询管理
@@ -384,7 +401,12 @@ const saveProviderConfig = async () => {
     // 使用细粒度API更新Provider
     const providerName = selectedProvider.value.name
     // 将响应式对象转换为普通对象，避免序列化错误
-    const providerData = JSON.parse(JSON.stringify(selectedProvider.value))
+    const cloneResult = deepCloneJson(selectedProvider.value)
+    if (!cloneResult.success) {
+      showMessage(`对象克隆失败: ${cloneResult.error}`, 'error')
+      return
+    }
+    const providerData = cloneResult.cloned
     const result = await window.api.updateProvider(providerName, providerData)
 
     if (result.success) {
@@ -435,7 +457,12 @@ const saveNewProvider = async () => {
   try {
     // 使用细粒度API添加Provider
     // 将响应式对象转换为普通对象，避免序列化错误
-    const providerData = JSON.parse(JSON.stringify(newProvider.value))
+    const cloneResult = deepCloneJson(newProvider.value)
+    if (!cloneResult.success) {
+      showMessage(`对象克隆失败: ${cloneResult.error}`, 'error')
+      return
+    }
+    const providerData = cloneResult.cloned
     const result = await window.api.addProvider(providerData)
 
     if (result.success) {
@@ -547,12 +574,15 @@ const saveAllRouterConfig = async (routerConfig) => {
     // 使用整体保存API更新路由器配置
     // 创建完整的配置数据对象，确保使用原始数据而不是Vue ref
     // 深度克隆以确保所有数据都是可序列化的
-    const fullConfigData = JSON.parse(
-      JSON.stringify({
-        ...configData.value,
-        Router: routerConfig
-      })
-    )
+    const cloneResult = deepCloneJson({
+      ...configData.value,
+      Router: routerConfig
+    })
+    if (!cloneResult.success) {
+      showMessage(`对象克隆失败: ${cloneResult.error}`, 'error')
+      return
+    }
+    const fullConfigData = cloneResult.cloned
 
     const result = await window.api.saveSettings(fullConfigData)
 
@@ -588,178 +618,6 @@ const handleServiceStatusChange = (isRunning) => {
 }
 
 // {{ AURA-X: Modify - 完善全局代理切换逻辑，实现实际的网络模式切换. Approval: 寸止确认. }}
-// JSON 语法高亮
-const highlightJson = (jsonString) => {
-  if (!jsonString) return ''
-
-  return jsonString
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/(".*?"):/g, '<span class="json-key">$1</span>:')
-    .replace(/:\s*(true|false|null)/g, ': <span class="json-boolean">$1</span>')
-    .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
-    .replace(/:\s*"([^"]*)"/g, ': <span class="json-string">"$1"</span>')
-    .replace(/(\{|\}|\[|\]|,)/g, '<span class="json-bracket">$1</span>')
-}
-
-// 更新JSON编辑器内容
-const updateJsonEditor = () => {
-  if (jsonEditor.value) {
-    const highlighted = highlightJson(claudeSettingsContent.value)
-    jsonEditor.value.innerHTML =
-      highlighted || '<span class="json-placeholder">请输入有效的JSON配置...</span>'
-  }
-}
-
-// 处理JSON输入
-const handleJsonInput = (event) => {
-  const content = event.target.innerText || event.target.textContent
-  claudeSettingsContent.value = content
-  validateJson()
-}
-
-// 处理JSON粘贴
-const handleJsonPaste = (event) => {
-  event.preventDefault()
-  const pastedText = event.clipboardData.getData('text')
-  document.execCommand('insertText', false, pastedText)
-  setTimeout(() => {
-    claudeSettingsContent.value = jsonEditor.value.innerText || jsonEditor.value.textContent
-    validateJson()
-  }, 0)
-}
-
-// 处理键盘事件
-const handleJsonKeydown = (event) => {
-  // 支持Tab键缩进
-  if (event.key === 'Tab') {
-    event.preventDefault()
-    document.execCommand('insertText', false, '  ')
-  }
-}
-
-// 验证JSON格式
-const validateJson = () => {
-  if (!claudeSettingsContent.value.trim()) {
-    jsonError.value = ''
-    jsonValid.value = false
-    return
-  }
-
-  try {
-    JSON.parse(claudeSettingsContent.value)
-    jsonError.value = ''
-    jsonValid.value = true
-  } catch (error) {
-    jsonError.value = `JSON 格式错误: ${error.message}`
-    jsonValid.value = false
-  }
-}
-
-// 格式化JSON
-const formatJson = () => {
-  if (!claudeSettingsContent.value.trim()) return
-
-  try {
-    const parsed = JSON.parse(claudeSettingsContent.value)
-    const formatted = JSON.stringify(parsed, null, 2)
-    claudeSettingsContent.value = formatted
-    updateJsonEditor()
-    validateJson()
-    showMessage('JSON 已格式化', 'success')
-  } catch {
-    showMessage('JSON 格式错误，无法格式化', 'error')
-  }
-}
-
-// 编辑Claude settings.json
-const editClaudeSettings = async () => {
-  try {
-    // 获取Claude settings.json文件路径
-    const pathResult = await window.api.getClaudeSettingsPath()
-    if (!pathResult.success) {
-      showMessage(`获取配置文件路径失败: ${pathResult.error}`, 'error')
-      return
-    }
-
-    // 读取settings.json文件
-    const readResult = await window.api.readFile(pathResult.data)
-    if (readResult.success) {
-      // 格式化JSON并显示
-      claudeSettingsContent.value = JSON.stringify(readResult.data, null, 2)
-      jsonError.value = ''
-      jsonValid.value = true
-      showClaudeSettingsDialog.value = true
-
-      // 等待DOM更新后设置编辑器内容
-      setTimeout(() => {
-        updateJsonEditor()
-      }, 100)
-    } else {
-      showMessage(`读取配置文件失败: ${readResult.error}`, 'error')
-    }
-  } catch (error) {
-    showMessage(`编辑配置文件异常: ${error.message}`, 'error')
-    console.error('编辑Claude settings异常:', error)
-  }
-}
-
-// 保存Claude settings.json
-const saveClaudeSettings = async () => {
-  if (!claudeSettingsContent.value.trim()) {
-    showMessage('配置内容不能为空', 'error')
-    return
-  }
-
-  // 验证JSON格式
-  if (!jsonValid.value || jsonError.value) {
-    showMessage('JSON格式错误，请修正后再保存', 'error')
-    return
-  }
-
-  try {
-    // 验证JSON格式
-    const parsedContent = JSON.parse(claudeSettingsContent.value)
-
-    savingClaudeSettings.value = true
-
-    // 获取文件路径
-    const pathResult = await window.api.getClaudeSettingsPath()
-    if (!pathResult.success) {
-      showMessage(`获取配置文件路径失败: ${pathResult.error}`, 'error')
-      return
-    }
-
-    // 保存文件
-    const saveResult = await window.api.writeFile(pathResult.data, parsedContent)
-    if (saveResult.success) {
-      showMessage('Claude settings.json 已保存', 'success')
-      showClaudeSettingsDialog.value = false
-
-      // 重新检测网络模式
-      detectNetworkMode()
-
-      // 更新悬浮窗
-      updateFloatingWindowWithCurrentInfo()
-
-      // 发送配置保存事件
-      window.dispatchEvent(new CustomEvent('claude-config-saved'))
-    } else {
-      showMessage(`保存配置文件失败: ${saveResult.error}`, 'error')
-    }
-  } catch (err) {
-    if (err instanceof SyntaxError) {
-      showMessage('JSON格式错误，请检查配置内容', 'error')
-      console.error('JSON解析错误:', err)
-    } else {
-      showMessage(`保存配置文件异常: ${err.message}`, 'error')
-      console.error('保存Claude settings异常:', err)
-    }
-  } finally {
-    savingClaudeSettings.value = false
-  }
-}
 
 // 处理全局代理切换
 const handleGlobalProxyChange = async (value) => {

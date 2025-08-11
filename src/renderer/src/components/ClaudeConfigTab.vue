@@ -45,8 +45,8 @@
           />
           <button
             v-if="searchKeyword"
-            @click="searchKeyword = ''"
             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+            @click="searchKeyword = ''"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -89,17 +89,17 @@
           v-for="config in filteredConfigs"
           :key="config.id"
           draggable="true"
+          :class="[
+            'border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-move relative',
+            dragItem?.id === config.id ? 'opacity-50' : '',
+            dragOverItem?.id === config.id ? 'ring-2 ring-blue-500 border-blue-500' : ''
+          ]"
           @dragstart="handleDragStart($event, config)"
           @dragover.prevent="handleDragOver($event)"
           @dragenter.prevent="handleDragEnter($event, config)"
           @dragleave.prevent="handleDragLeave($event)"
           @drop="handleDrop($event, config)"
           @dragend="handleDragEnd($event)"
-          :class="[
-            'border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-move relative',
-            dragItem?.id === config.id ? 'opacity-50' : '',
-            dragOverItem?.id === config.id ? 'ring-2 ring-blue-500 border-blue-500' : ''
-          ]"
         >
           <!-- 拖拽手柄 -->
           <div class="absolute top-2 left-2 text-gray-400 hover:text-gray-600 transition-colors">

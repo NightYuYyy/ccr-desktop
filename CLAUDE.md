@@ -107,6 +107,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 配置数据通过IPC从主进程获取
 - 悬浮窗状态通过定期更新机制保持同步
 
+## 网络模式管理
+
+应用支持两种网络模式的智能切换：
+
+### 代理模式
+
+- 通过 Claude Code Router (CCR) 服务转发请求
+- 配置文件：`~/.config/claude-code-router/settings.json`
+- 支持多个AI服务提供商的统一管理
+
+### 直连模式
+
+- 直接连接AI服务商API
+- 配置文件：`~/.config/claude-desktop/settings.json`
+- 支持多配置文件快速切换
+
+### 模式切换
+
+- 系统托盘菜单提供快速切换功能
+- 主界面网络模式开关自动检测当前状态
+- 悬浮窗实时显示当前模式和服务商信息
+
+## 数据备份与恢复
+
+### WebDAV备份
+
+- 支持远程WebDAV服务器备份配置文件
+- 自动备份和手动备份功能
+- 备份文件版本管理
+
+### 本地备份
+
+- 配置文件本地定时备份
+- 备份文件存储在 `~/.config/claude-code-router/backups/`
+- 支持备份文件恢复
+
 ## 开发建议
 
-- 每次任务进行后不要运行dev 和 build
+- 每次任务进行后不要运行dev 和build

@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, Tray, Menu, dialog, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, Tray, Menu, dialog, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerConfigHandlers } from './handlers/index.js'
 import { FloatingService } from './services/floatingService.js'
+import { MainIPCService } from './services/ipcService.js'
 
 let tray = null
 let floatingWindow = null
@@ -408,9 +409,9 @@ async function updateTrayMenu(mainWindow) {
 }
 
 // 添加IPC处理器用于更新悬浮窗内容
-ipcMain.on('update-floating-window', (event, content) => {
+MainIPCService.on('update-floating-window', (event, content) => {
   if (floatingWindow) {
-    floatingWindow.webContents.send('update-content', content)
+    MainIPCService.send(floatingWindow.webContents, 'update-content', content)
 
     // {{ AURA-X: Modify - 动态调整窗口宽度并保持右下角位置. Approval: 寸止确认. }}
     // {{ AURA-X: Modify - 增加最大宽度，让模型名称完整显示. Approval: 寸止确认. }}
@@ -460,14 +461,14 @@ ipcMain.on('update-floating-window', (event, content) => {
 })
 
 // {{ AURA-X: Add - 新增IPC处理器支持手动调整悬浮窗尺寸. Approval: 寸止确认. }}
-ipcMain.on('resize-floating-window', (event, width, height) => {
+MainIPCService.on('resize-floating-window', (event, width, height) => {
   if (floatingWindow) {
     floatingWindow.setSize(width || 350, height || 40)
   }
 })
 
 // {{ AURA-X: Add - 新增IPC处理器支持移动悬浮窗位置. Approval: 寸止确认. }}
-ipcMain.on('move-floating-window', (event, deltaX, deltaY) => {
+MainIPCService.on('move-floating-window', (event, deltaX, deltaY) => {
   if (floatingWindow) {
     const [currentX, currentY] = floatingWindow.getPosition()
     floatingWindow.setPosition(currentX + deltaX, currentY + deltaY)
@@ -475,18 +476,18 @@ ipcMain.on('move-floating-window', (event, deltaX, deltaY) => {
 })
 
 // 添加IPC处理器用于关闭悬浮窗
-ipcMain.on('close-floating-window', () => {
+MainIPCService.on('close-floating-window', () => {
   if (floatingWindow) {
     floatingWindow.hide()
   }
 })
 
 // {{ AURA-X: Modify - 使用统一的FloatingService处理刷新. Approval: 寸止确认. }}
-ipcMain.on('refresh-floating-window', async () => {
+MainIPCService.on('refresh-floating-window', async () => {
   if (floatingWindow && !floatingWindow.isDestroyed()) {
     try {
       const modelInfo = await FloatingService.getCurrentInfo()
-      floatingWindow.webContents.send('update-content', modelInfo)
+      MainIPCService.send(floatingWindow.webContents, 'update-content', modelInfo)
     } catch (error) {
       console.error('[FloatingWindow] 刷新失败:', error)
     }
@@ -516,10 +517,10 @@ async function detectNetworkMode() {
 async function getDirectConfigs() {
   try {
     // 引入必要的模块
-    const { getDirectConfigPath } = await import('./utils/pathUtils.js')
+    const { ConfigManager } = await import('./services/configManager.js')
     const { readJsonFile } = await import('./utils/fileUtils.js')
 
-    const directConfigPath = getDirectConfigPath()
+    const directConfigPath = ConfigManager.getDirectConfigPath()
     const result = await readJsonFile(directConfigPath)
 
     if (result.success && result.data && result.data.directConfigs) {
@@ -573,10 +574,10 @@ async function getCCRModels() {
 async function switchNetworkModeFromTray(isProxy) {
   try {
     // 引入必要的模块
-    const { getClaudeSettingsPath, getDirectConfigPath } = await import('./utils/pathUtils.js')
+    const { ConfigManager } = await import('./services/configManager.js')
     const { readJsonFile, writeJsonFile } = await import('./utils/fileUtils.js')
 
-    const settingsPath = getClaudeSettingsPath()
+    const settingsPath = ConfigManager.getClaudeSettingsPath()
 
     // 读取现有的settings.json
     const readResult = await readJsonFile(settingsPath)
@@ -598,7 +599,7 @@ async function switchNetworkModeFromTray(isProxy) {
     } else {
       // 切换到直连模式，恢复直连配置
       try {
-        const directConfigPath = getDirectConfigPath()
+        const directConfigPath = ConfigManager.getDirectConfigPath()
         const directConfigResult = await readJsonFile(directConfigPath)
 
         if (directConfigResult.success && directConfigResult.data) {
@@ -644,7 +645,7 @@ async function switchNetworkModeFromTray(isProxy) {
     // 刷新悬浮窗
     if (floatingWindow && !floatingWindow.isDestroyed()) {
       const modelInfo = await FloatingService.getCurrentInfo()
-      floatingWindow.webContents.send('update-content', modelInfo)
+      MainIPCService.send(floatingWindow.webContents, 'update-content', modelInfo)
     }
 
     // {{ AURA-X: Add - 通知前端界面同步状态. Approval: 寸止确认. }}
@@ -652,7 +653,7 @@ async function switchNetworkModeFromTray(isProxy) {
     const allWindows = BrowserWindow.getAllWindows()
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
-        window.webContents.send('network-mode-changed', { isProxy })
+        MainIPCService.send(window.webContents, 'network-mode-changed', { isProxy })
       }
     })
 
@@ -667,10 +668,10 @@ async function switchNetworkModeFromTray(isProxy) {
 async function applyDirectConfigFromTray(config) {
   try {
     // 引入必要的模块
-    const { getClaudeSettingsPath } = await import('./utils/pathUtils.js')
+    const { ConfigManager } = await import('./services/configManager.js')
     const { readJsonFile, writeJsonFile } = await import('./utils/fileUtils.js')
 
-    const settingsPath = getClaudeSettingsPath()
+    const settingsPath = ConfigManager.getClaudeSettingsPath()
 
     // 读取现有的settings.json
     const readResult = await readJsonFile(settingsPath)
@@ -694,7 +695,7 @@ async function applyDirectConfigFromTray(config) {
     // 刷新悬浮窗
     if (floatingWindow && !floatingWindow.isDestroyed()) {
       const modelInfo = await FloatingService.getCurrentInfo()
-      floatingWindow.webContents.send('update-content', modelInfo)
+      MainIPCService.send(floatingWindow.webContents, 'update-content', modelInfo)
     }
 
     return true
@@ -714,7 +715,7 @@ async function applyCCRModelFromTray(model) {
       // 刷新悬浮窗
       if (floatingWindow && !floatingWindow.isDestroyed()) {
         const modelInfo = await FloatingService.getCurrentInfo()
-        floatingWindow.webContents.send('update-content', modelInfo)
+        MainIPCService.send(floatingWindow.webContents, 'update-content', modelInfo)
       }
       return true
     }

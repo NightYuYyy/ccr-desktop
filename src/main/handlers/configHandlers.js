@@ -9,8 +9,15 @@ import {
   deleteProvider,
   updateDefaultModel,
   updateRouterModel,
-  updateLongContextThreshold
+  updateLongContextThreshold,
+  backupData
 } from '../services/configService.js'
+import {
+  setWebdavConfig,
+  getWebdavConfig,
+  testWebdavConnection,
+  listWebdavBackups
+} from '../services/webdavService.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { writeFile } from 'fs/promises'
 import {
@@ -817,6 +824,89 @@ export function registerConfigHandlers() {
     }
   })
 
+  // === WebDAV相关处理器 ===
+
+  // 设置WebDAV配置
+  ipcMain.handle('set-webdav-config', async (event, config) => {
+    try {
+      console.log('[ConfigHandler] 设置WebDAV配置')
+      setWebdavConfig(config)
+      return {
+        success: true,
+        message: 'WebDAV配置已保存'
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 设置WebDAV配置失败:', error)
+      return {
+        success: false,
+        error: `设置WebDAV配置失败: ${error.message}`
+      }
+    }
+  })
+
+  // 获取WebDAV配置
+  ipcMain.handle('get-webdav-config', async () => {
+    try {
+      console.log('[ConfigHandler] 获取WebDAV配置')
+      const config = getWebdavConfig()
+      return {
+        success: true,
+        data: config
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 获取WebDAV配置失败:', error)
+      return {
+        success: false,
+        error: `获取WebDAV配置失败: ${error.message}`
+      }
+    }
+  })
+
+  // 测试WebDAV连接
+  ipcMain.handle('test-webdav-connection', async () => {
+    try {
+      console.log('[ConfigHandler] 测试WebDAV连接')
+      const result = await testWebdavConnection()
+      return result
+    } catch (error) {
+      console.error('[ConfigHandler] 测试WebDAV连接失败:', error)
+      return {
+        success: false,
+        error: `测试WebDAV连接失败: ${error.message}`
+      }
+    }
+  })
+
+  // 通过WebDAV备份数据
+  ipcMain.handle('backup-data-webdav', async () => {
+    try {
+      console.log('[ConfigHandler] 通过WebDAV备份数据')
+      const result = await backupData({ useWebdav: true })
+      return result
+    } catch (error) {
+      console.error('[ConfigHandler] WebDAV备份失败:', error)
+      return {
+        success: false,
+        error: `WebDAV备份失败: ${error.message}`
+      }
+    }
+  })
+
+  // 列出WebDAV备份文件
+  ipcMain.handle('list-webdav-backups', async () => {
+    try {
+      console.log('[ConfigHandler] 列出WebDAV备份文件')
+      const result = await listWebdavBackups()
+      return result
+    } catch (error) {
+      console.error('[ConfigHandler] 获取WebDAV备份列表失败:', error)
+      return {
+        success: false,
+        error: `获取WebDAV备份列表失败: ${error.message}`
+      }
+    }
+  })
+
   console.log('[ConfigHandler] 配置处理器注册完成')
 }
 
@@ -846,6 +936,11 @@ export function unregisterConfigHandlers() {
   ipcMain.removeHandler('save-direct-config')
   ipcMain.removeHandler('apply-direct-config')
   ipcMain.removeHandler('switch-network-mode')
+  ipcMain.removeHandler('set-webdav-config')
+  ipcMain.removeHandler('get-webdav-config')
+  ipcMain.removeHandler('test-webdav-connection')
+  ipcMain.removeHandler('backup-data-webdav')
+  ipcMain.removeHandler('list-webdav-backups')
 
   console.log('[ConfigHandler] 配置处理器已注销')
 }

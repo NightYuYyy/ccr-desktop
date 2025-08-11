@@ -3,6 +3,9 @@ import {
   getClaudeCodeRouterConfigDir
 } from '../utils/pathUtils.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
+import { backupDataToWebdav } from './webdavService.js'
+import path from 'path'
+import fs from 'fs/promises'
 
 /**
  * Claude Code Router 配置模板
@@ -467,6 +470,62 @@ export async function updateLongContextThreshold(threshold) {
     return {
       success: false,
       error: `更新长文本阈值失败: ${error.message}`
+    }
+  }
+}
+
+/**
+ * 创建配置备份
+ * @param {object} [options] - 备份选项
+ * @param {boolean} [options.useWebdav=false] - 是否使用WebDAV备份
+ * @returns {Promise<{success: boolean, backupPath?: string, error?: string}>} 操作结果
+ */
+export async function backupData(options = {}) {
+  try {
+    if (options.useWebdav) {
+      // 使用WebDAV备份
+      return await backupDataToWebdav()
+    } else {
+      // 本地备份
+      const configDir = getClaudeCodeRouterConfigDir()
+      const backupDir = path.join(configDir, 'backups')
+
+      // 确保备份目录存在
+      await fs.mkdir(backupDir, { recursive: true })
+
+      // 生成备份文件名 (包含时间戳)
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const backupFileName = `settings-backup-${timestamp}.json`
+      const backupPath = path.join(backupDir, backupFileName)
+
+      // 读取当前配置
+      const readResult = await readClaudeCodeRouterSettings()
+      if (!readResult.success) {
+        return {
+          success: false,
+          error: `读取配置失败: ${readResult.error}`
+        }
+      }
+
+      // 写入备份文件
+      const backupResult = await writeJsonFile(backupPath, readResult.data)
+      if (!backupResult.success) {
+        return {
+          success: false,
+          error: `创建备份失败: ${backupResult.error}`
+        }
+      }
+
+      return {
+        success: true,
+        backupPath,
+        message: `备份成功创建: ${backupPath}`
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: `备份过程中发生错误: ${error.message}`
     }
   }
 }

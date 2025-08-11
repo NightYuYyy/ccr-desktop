@@ -146,6 +146,27 @@ const api = {
 
   async applyDirectConfig(directConfig) {
     return ipcRenderer.invoke('apply-direct-config', directConfig)
+  },
+
+  // === WebDAV相关API ===
+  async setWebdavConfig(config) {
+    return ipcRenderer.invoke('set-webdav-config', config)
+  },
+
+  async getWebdavConfig() {
+    return ipcRenderer.invoke('get-webdav-config')
+  },
+
+  async testWebdavConnection() {
+    return ipcRenderer.invoke('test-webdav-connection')
+  },
+
+  async backupDataWebdav() {
+    return ipcRenderer.invoke('backup-data-webdav')
+  },
+
+  async listWebdavBackups() {
+    return ipcRenderer.invoke('list-webdav-backups')
   }
 }
 

@@ -22,7 +22,8 @@
     "@electron-toolkit/utils": "^4.0.0",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.10.4",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "webdav": "^5.8.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.0.0",

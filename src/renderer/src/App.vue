@@ -5,6 +5,7 @@ import ConfigTab from './components/ConfigTab.vue'
 import ServiceTab from './components/ServiceTab.vue'
 import ClaudeConfigTab from './components/ClaudeConfigTab.vue'
 import MultiModelConfig from './components/MultiModelConfig.vue'
+import BackupDataTab from './components/BackupDataTab.vue'
 
 // 统一消息管理函数 - 确保同时只显示一条消息
 const showMessage = (message, type = 'info') => {
@@ -882,6 +883,7 @@ const handleGlobalProxyChange = async (value) => {
             <el-tab-pane label="配置管理" name="config"></el-tab-pane>
             <el-tab-pane label="Claude配置" name="claude"></el-tab-pane>
             <el-tab-pane label="启动服务" name="service"></el-tab-pane>
+            <el-tab-pane label="数据备份" name="backup"></el-tab-pane>
           </el-tabs>
         </div>
       </div>
@@ -921,6 +923,10 @@ const handleGlobalProxyChange = async (value) => {
           @message="handleServiceMessage"
           @service-status-changed="handleServiceStatusChange"
         />
+      </div>
+      <!-- 数据备份Tab内容 -->
+      <div v-if="activeTab === 'backup'">
+        <BackupDataTab />
       </div>
     </div>
 

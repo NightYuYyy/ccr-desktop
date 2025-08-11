@@ -8,8 +8,10 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BackupDataTab: typeof import('./src/components/BackupDataTab.vue')['default']
     ClaudeConfigTab: typeof import('./src/components/ClaudeConfigTab.vue')['default']
     ConfigTab: typeof import('./src/components/ConfigTab.vue')['default']
+    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
     ElDialog: typeof import('element-plus/es')['ElDialog']
@@ -22,7 +24,10 @@ declare module 'vue' {
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
     ElOption: typeof import('element-plus/es')['ElOption']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
+    ElTable: typeof import('element-plus/es')['ElTable']
+    ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
@@ -32,5 +37,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     ServiceTab: typeof import('./src/components/ServiceTab.vue')['default']
     StatisticsCards: typeof import('./src/components/StatisticsCards.vue')['default']
+    WebdavConfig: typeof import('./src/components/WebdavConfig.vue')['default']
   }
 }

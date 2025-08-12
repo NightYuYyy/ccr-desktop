@@ -229,6 +229,21 @@ const openClaudeConfigFolder = async () => {
   }
 }
 
+// 编辑Claude settings.json的包装函数
+const editClaudeSettingsWrapper = async () => {
+  await editClaudeSettings(window.api.getClaudeSettingsPath, window.api.readFile)
+}
+
+// 保存Claude settings.json的包装函数
+const saveClaudeSettingsWrapper = async () => {
+  await saveClaudeSettings(
+    window.api.getClaudeSettingsPath,
+    window.api.writeFile,
+    detectNetworkMode,
+    updateFloatingWindowWithCurrentInfo
+  )
+}
+
 // 检测网络模式
 const detectNetworkMode = async () => {
   try {
@@ -727,7 +742,7 @@ const handleGlobalProxyChange = async (value) => {
                 v-if="activeTab === 'claude'"
                 type="primary"
                 class="flex-1 sm:flex-none"
-                @click="editClaudeSettings"
+                @click="editClaudeSettingsWrapper"
               >
                 编辑settings.json
               </el-button>
@@ -1113,7 +1128,11 @@ const handleGlobalProxyChange = async (value) => {
       <template #footer>
         <div class="flex justify-end space-x-3">
           <el-button @click="showClaudeSettingsDialog = false">取消</el-button>
-          <el-button type="primary" :loading="savingClaudeSettings" @click="saveClaudeSettings">
+          <el-button
+            type="primary"
+            :loading="savingClaudeSettings"
+            @click="saveClaudeSettingsWrapper"
+          >
             {{ savingClaudeSettings ? '保存中...' : '保存' }}
           </el-button>
         </div>

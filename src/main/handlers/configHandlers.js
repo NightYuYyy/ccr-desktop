@@ -55,7 +55,10 @@ export function registerConfigHandlers() {
   MainIPCService.handle('get-config-paths', async () => {
     const paths = ConfigManager.getCCRPaths()
     console.log('[ConfigHandler] 返回配置路径信息:', paths)
-    return paths
+    return {
+      success: true,
+      data: paths
+    }
   })
 
   // 打开配置文件夹的处理器
@@ -331,13 +334,19 @@ export function registerConfigHandlers() {
   // 获取用户主目录的处理器
   MainIPCService.handle('get-home-dir', async () => {
     const homeDir = getUserHomeDir()
-    return homeDir
+    return {
+      success: true,
+      data: homeDir
+    }
   })
 
   // 获取Claude配置文件路径的处理器
   MainIPCService.handle('get-claude-settings-path', async () => {
     const configPath = ConfigManager.getClaudeSettingsPath()
-    return configPath
+    return {
+      success: true,
+      data: configPath
+    }
   })
 
   // 读取文件的处理器
@@ -358,7 +367,8 @@ export function registerConfigHandlers() {
         try {
           await writeFile(filePath, content, 'utf-8')
           return {
-            success: true
+            success: true,
+            data: null
           }
         } catch (writeError) {
           return {
@@ -408,7 +418,10 @@ export function registerConfigHandlers() {
   // 获取直连配置文件路径
   MainIPCService.handle('get-direct-config-path', async () => {
     const configPath = getDirectConfigPath()
-    return configPath
+    return {
+      success: true,
+      data: configPath
+    }
   })
 
   // 读取直连配置文件
@@ -636,7 +649,10 @@ export function registerConfigHandlers() {
   MainIPCService.handle('get-webdav-config', async () => {
     console.log('[ConfigHandler] 获取WebDAV配置')
     const config = getWebdavConfig()
-    return config
+    return {
+      success: true,
+      data: config
+    }
   })
 
   // 测试WebDAV连接

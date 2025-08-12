@@ -142,7 +142,11 @@
 
           <!-- API Key显示 -->
           <div class="mb-3 card-content">
-            <label class="block text-xs text-gray-500 mb-1">API Key</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs text-gray-500">API Key</label>
+              <el-tag v-if="config.useApiKey" type="warning" size="small">API Key</el-tag>
+              <el-tag v-else type="info" size="small">Token</el-tag>
+            </div>
             <div class="flex items-center gap-2">
               <code class="text-xs bg-gray-500 px-2 py-1 rounded flex-1 truncate">
                 {{ showApiKey[config.id] ? config.apiKey : maskApiKey(config.apiKey) }}
@@ -215,6 +219,10 @@
           />
         </el-form-item>
 
+        <el-form-item>
+          <el-checkbox v-model="configForm.useApiKey">使用API Key认证（默认使用Token）</el-checkbox>
+        </el-form-item>
+
         <el-form-item label="Base URL" prop="baseUrl">
           <el-input v-model="configForm.baseUrl" placeholder="请输入API基础地址" />
         </el-form-item>
@@ -261,6 +269,7 @@ const configForm = reactive({
   name: '',
   apiKey: '',
   baseUrl: 'https://api.anthropic.com',
+  useApiKey: false,
   isDefault: false
 })
 
@@ -390,6 +399,7 @@ const resetConfigForm = () => {
   configForm.name = ''
   configForm.apiKey = ''
   configForm.baseUrl = 'https://api.anthropic.com'
+  configForm.useApiKey = false
   configForm.isDefault = false
 
   if (configFormRef.value) {
@@ -431,6 +441,7 @@ const saveConfig = async () => {
           name: configForm.name,
           apiKey: configForm.apiKey,
           baseUrl: configForm.baseUrl,
+          useApiKey: configForm.useApiKey,
           isDefault: configForm.isDefault
         }
       }
@@ -441,6 +452,7 @@ const saveConfig = async () => {
         name: configForm.name,
         apiKey: configForm.apiKey,
         baseUrl: configForm.baseUrl,
+        useApiKey: configForm.useApiKey,
         isDefault: configForm.isDefault,
         order: directConfigs.value.length, // 添加到末尾
         createdAt: now
@@ -503,6 +515,7 @@ const editConfig = (config) => {
   configForm.name = config.name
   configForm.apiKey = config.apiKey
   configForm.baseUrl = config.baseUrl
+  configForm.useApiKey = config.useApiKey || false
   configForm.isDefault = config.isDefault
   showConfigDialog.value = true
 }
@@ -514,6 +527,7 @@ const copyConfig = (config) => {
   configForm.name = `${config.name} - 副本`
   configForm.apiKey = config.apiKey
   configForm.baseUrl = config.baseUrl
+  configForm.useApiKey = config.useApiKey || false
   configForm.isDefault = false
   showConfigDialog.value = true
 }

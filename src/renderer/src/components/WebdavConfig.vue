@@ -19,8 +19,9 @@
         <el-input
           v-model="webdavConfig.password"
           type="password"
-          placeholder="WebDAV密码"
+          placeholder="WebDAV密码（为安全考虑，每次需重新输入）"
           show-password
+          clearable
         />
       </el-form-item>
 
@@ -77,7 +78,19 @@ const loadConfig = async () => {
   try {
     const result = await window.api.getWebdavConfig()
     if (result.success && result.data) {
-      webdavConfig.value = { ...webdavConfig.value, ...result.data }
+      const config = result.data
+      webdavConfig.value = {
+        ...webdavConfig.value,
+        ...config,
+        // 如果密码是掩码，清空输入框让用户重新输入
+        password: config.password === '••••••••' ? '' : config.password
+      }
+
+      // 如果有保存的配置，显示提示
+      if (config.server) {
+        console.log('[加载配置] WebDAV服务器:', config.server)
+        console.log('[加载配置] WebDAV启用状态:', config.enabled)
+      }
     }
   } catch (error) {
     console.error('加载WebDAV配置失败:', error)
@@ -91,7 +104,9 @@ const saveConfig = async () => {
 
   saving.value = true
   try {
-    const result = await window.api.setWebdavConfig(webdavConfig.value)
+    // 确保传递的是普通对象而不是Vue响应式对象
+    const configData = JSON.parse(JSON.stringify(webdavConfig.value))
+    const result = await window.api.setWebdavConfig(configData)
     if (result.success) {
       ElMessage.success('WebDAV配置保存成功')
     } else {
@@ -113,8 +128,9 @@ const testConnection = async () => {
   testResult.value = null
 
   try {
-    // 先保存配置再测试
-    const saveResult = await window.api.setWebdavConfig(webdavConfig.value)
+    // 先保存配置再测试 - 确保传递普通对象
+    const configData = JSON.parse(JSON.stringify(webdavConfig.value))
+    const saveResult = await window.api.setWebdavConfig(configData)
     if (!saveResult.success) {
       ElMessage.error(`保存配置失败: ${saveResult.error}`)
       testing.value = false
@@ -150,6 +166,65 @@ onMounted(() => {
 
 <style scoped>
 .webdav-config-form {
-  padding: 20px 0;
+  padding: 0;
+}
+
+:deep(.el-form-item__label) {
+  color: #2c3e50 !important;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+:deep(.el-button) {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-button--primary) {
+  background: linear-gradient(135deg, #409eff 0%, #667eea 100%);
+  border: none;
+}
+
+:deep(.el-button--primary:hover) {
+  background: linear-gradient(135deg, #337ecc 0%, #5a67d8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.3);
+}
+
+:deep(.el-button:not(.el-button--primary)) {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #495057;
+}
+
+:deep(.el-button:not(.el-button--primary):hover) {
+  background: #e9ecef;
+  border-color: #adb5bd;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
+:deep(.el-alert) {
+  border-radius: 8px;
+  margin-top: 16px;
 }
 </style>

@@ -1,9 +1,12 @@
 import { createClient } from 'webdav'
 import { getClaudeCodeRouterSettingsPath } from '../utils/pathUtils.js'
+import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
+import { ConfigManager } from './configManager.js'
 import fs from 'fs/promises'
+import path from 'path'
 
 /**
- * WebDAV备份配置
+ * WebDAV备份配置（内存中的缓存）
  */
 let webdavConfig = {
   server: '',
@@ -13,25 +16,117 @@ let webdavConfig = {
 }
 
 /**
+ * 获取WebDAV配置文件路径
+ * @returns {string} WebDAV配置文件路径
+ */
+function getWebdavConfigPath() {
+  const configDir = ConfigManager.getCCRPaths().configDir
+  return path.join(configDir, 'webdav-config.json')
+}
+
+/**
+ * 从文件加载WebDAV配置
+ * @returns {Promise<object>} WebDAV配置对象
+ */
+async function loadWebdavConfigFromFile() {
+  try {
+    const configPath = getWebdavConfigPath()
+    const result = await readJsonFile(configPath)
+
+    if (result.success && result.data) {
+      return result.data
+    }
+  } catch (error) {
+    console.log('[WebDAV] 加载配置文件失败，使用默认配置:', error.message)
+  }
+
+  // 返回默认配置
+  return {
+    server: '',
+    username: '',
+    password: '',
+    remotePath: '/ccr-backups'
+  }
+}
+
+/**
+ * 保存WebDAV配置到文件
+ * @param {object} config WebDAV配置对象
+ * @returns {Promise<boolean>} 是否保存成功
+ */
+async function saveWebdavConfigToFile(config) {
+  try {
+    const configPath = getWebdavConfigPath()
+    const result = await writeJsonFile(configPath, config)
+    return result.success
+  } catch (error) {
+    console.error('[WebDAV] 保存配置文件失败:', error.message)
+    return false
+  }
+}
+
+// 应用启动时自动加载配置
+loadWebdavConfigFromFile()
+  .then((config) => {
+    webdavConfig = config
+    console.log('[WebDAV] 配置已加载:', getWebdavConfigPath())
+  })
+  .catch((error) => {
+    console.warn('[WebDAV] 加载配置失败，使用默认配置:', error.message)
+  })
+
+/**
  * 设置WebDAV配置
  * @param {object} config - WebDAV配置
  * @param {string} config.server - WebDAV服务器地址
  * @param {string} config.username - 用户名
  * @param {string} config.password - 密码
  * @param {string} [config.remotePath] - 远程路径，默认为'/ccr-backups'
+ * @returns {Promise<boolean>} 是否设置成功
  */
-export function setWebdavConfig(config) {
+export async function setWebdavConfig(config) {
+  // 更新内存中的配置
   webdavConfig = {
     ...webdavConfig,
     ...config
   }
+
+  // 保存到配置文件
+  const saved = await saveWebdavConfigToFile(webdavConfig)
+  if (saved) {
+    console.log('[WebDAV] 配置已保存到:', getWebdavConfigPath())
+  } else {
+    console.warn('[WebDAV] 配置保存失败')
+  }
+
+  return saved
 }
 
 /**
  * 获取WebDAV配置
- * @returns {object} 当前WebDAV配置
+ * @returns {Promise<object>} 当前WebDAV配置
  */
-export function getWebdavConfig() {
+export async function getWebdavConfig() {
+  // 确保配置是最新的（从文件重新加载）
+  try {
+    const fileConfig = await loadWebdavConfigFromFile()
+    webdavConfig = fileConfig
+  } catch (error) {
+    console.warn('[WebDAV] 重新加载配置失败:', error.message)
+  }
+
+  return {
+    ...webdavConfig,
+    // 为安全起见，返回时不暴露真实密码，只显示掩码
+    password: webdavConfig.password ? '••••••••' : ''
+  }
+}
+
+/**
+ * 获取WebDAV配置（包含真实密码，仅供内部使用）
+ * @returns {object} 当前WebDAV配置（包含真实密码）
+ */
+export function getWebdavConfigWithPassword() {
   return { ...webdavConfig }
 }
 
@@ -40,13 +135,15 @@ export function getWebdavConfig() {
  * @returns {object} WebDAV客户端实例
  */
 function createWebdavClient() {
-  if (!webdavConfig.server || !webdavConfig.username || !webdavConfig.password) {
+  const config = getWebdavConfigWithPassword() // 使用包含真实密码的配置
+
+  if (!config.server || !config.username || !config.password) {
     throw new Error('WebDAV配置不完整，请提供服务器地址、用户名和密码')
   }
 
-  return createClient(webdavConfig.server, {
-    username: webdavConfig.username,
-    password: webdavConfig.password
+  return createClient(config.server, {
+    username: config.username,
+    password: config.password
   })
 }
 
@@ -78,13 +175,15 @@ export async function backupDataToWebdav() {
   try {
     const client = createWebdavClient()
 
+    const config = getWebdavConfigWithPassword() // 获取真实配置
+
     // 确保远程备份目录存在
     try {
-      await client.getDirectoryContents(webdavConfig.remotePath)
+      await client.getDirectoryContents(config.remotePath)
     } catch (error) {
       // 如果目录不存在，创建它
       if (error.status === 404) {
-        await client.createDirectory(webdavConfig.remotePath, { recursive: true })
+        await client.createDirectory(config.remotePath, { recursive: true })
       } else {
         throw error
       }
@@ -96,7 +195,7 @@ export async function backupDataToWebdav() {
     // 生成备份文件名 (包含时间戳)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupFileName = `settings-backup-${timestamp}.json`
-    const remoteBackupPath = `${webdavConfig.remotePath}/${backupFileName}`
+    const remoteBackupPath = `${config.remotePath}/${backupFileName}`
 
     // 读取本地配置文件内容
     const configContent = await fs.readFile(configPath, 'utf-8')
@@ -106,8 +205,8 @@ export async function backupDataToWebdav() {
 
     return {
       success: true,
-      backupPath: `${webdavConfig.server}${remoteBackupPath}`,
-      message: `备份成功上传到: ${webdavConfig.server}${remoteBackupPath}`
+      backupPath: `${config.server}${remoteBackupPath}`,
+      message: `备份成功上传到: ${config.server}${remoteBackupPath}`
     }
   } catch (error) {
     return {
@@ -154,9 +253,10 @@ export async function restoreDataFromWebdav(remoteFilePath) {
 export async function listWebdavBackups() {
   try {
     const client = createWebdavClient()
+    const config = getWebdavConfigWithPassword() // 获取真实配置
 
     // 获取备份目录内容
-    const contents = await client.getDirectoryContents(webdavConfig.remotePath)
+    const contents = await client.getDirectoryContents(config.remotePath)
 
     // 过滤出备份文件（以settings-backup-开头的json文件）
     const backupFiles = contents

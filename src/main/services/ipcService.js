@@ -15,9 +15,7 @@ export class MainIPCService {
   static handle(channel, handler) {
     ipcMain.handle(channel, async (event, ...args) => {
       try {
-        console.log(`[IPC] 处理请求: ${channel}`, args.length > 0 ? args : '')
         const result = await handler(event, ...args)
-        console.log(`[IPC] 处理成功: ${channel}`)
         return { success: true, data: result }
       } catch (error) {
         console.error(`[IPC] 处理失败: ${channel}`, error)
@@ -38,7 +36,6 @@ export class MainIPCService {
   static on(channel, listener) {
     ipcMain.on(channel, (event, ...args) => {
       try {
-        console.log(`[IPC] 接收消息: ${channel}`, args.length > 0 ? args : '')
         listener(event, ...args)
       } catch (error) {
         console.error(`[IPC] 处理消息失败: ${channel}`, error)
@@ -54,7 +51,6 @@ export class MainIPCService {
    */
   static send(webContents, channel, ...args) {
     if (webContents && !webContents.isDestroyed()) {
-      console.log(`[IPC] 发送消息: ${channel}`, args.length > 0 ? args : '')
       webContents.send(channel, ...args)
     }
   }
@@ -87,14 +83,12 @@ export class RendererIPCService {
    */
   static async invoke(channel, ...args) {
     try {
-      console.log(`[IPC] 调用方法: ${channel}`, args.length > 0 ? args : '')
       const result = await ipcRenderer.invoke(channel, ...args)
 
       if (result && typeof result === 'object' && !result.success) {
         throw new Error(result.error || 'IPC调用失败')
       }
 
-      console.log(`[IPC] 调用成功: ${channel}`)
       return result
     } catch (error) {
       console.error(`[IPC] 调用失败: ${channel}`, error)
@@ -108,7 +102,6 @@ export class RendererIPCService {
    * @param {...any} args - 消息参数
    */
   static send(channel, ...args) {
-    console.log(`[IPC] 发送消息: ${channel}`, args.length > 0 ? args : '')
     ipcRenderer.send(channel, ...args)
   }
 
@@ -120,7 +113,6 @@ export class RendererIPCService {
   static on(channel, listener) {
     ipcRenderer.on(channel, (event, ...args) => {
       try {
-        console.log(`[IPC] 接收消息: ${channel}`, args.length > 0 ? args : '')
         listener(event, ...args)
       } catch (error) {
         console.error(`[IPC] 处理消息失败: ${channel}`, error)

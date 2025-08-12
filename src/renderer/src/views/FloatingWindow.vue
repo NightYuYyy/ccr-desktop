@@ -21,13 +21,12 @@ let lastY = 0
 
 // 监听主进程发送的内容更新消息
 const handleUpdateContent = (event, data) => {
-  // {{ AURA-X: Modify - 始终显示模型名称. Approval: 寸止确认. }}
   if (data && typeof data === 'object') {
-    // 始终显示模型名称
     modelName.value = data.modelName || '未设置模型'
   } else if (typeof data === 'string') {
-    // 向后兼容字符串格式
     modelName.value = data || '未设置模型'
+  } else {
+    modelName.value = '数据格式异常'
   }
 }
 
@@ -79,14 +78,8 @@ onMounted(() => {
   // 添加事件监听器
   window.api.onUpdateContent(handleUpdateContent)
 
-  // {{ AURA-X: Modify - 组件挂载后立即请求最新模型信息. Approval: 寸止确认. }}
   // 设置初始状态为加载中
   modelName.value = '正在加载...'
-
-  // 挂载完成后立即请求最新数据
-  setTimeout(() => {
-    window.api.refreshFloatingWindow()
-  }, 100)
 })
 
 onUnmounted(() => {

@@ -507,7 +507,14 @@ export function registerConfigHandlers() {
       settings.env = {}
     }
 
-    settings.env.ANTHROPIC_AUTH_TOKEN = directConfig.apiKey
+    // 根据useApiKey标志选择使用哪种认证方式
+    if (directConfig.useApiKey) {
+      settings.env.ANTHROPIC_API_KEY = directConfig.apiKey
+      delete settings.env.ANTHROPIC_AUTH_TOKEN // 清除token认证
+    } else {
+      settings.env.ANTHROPIC_AUTH_TOKEN = directConfig.apiKey
+      delete settings.env.ANTHROPIC_API_KEY // 清除API Key认证
+    }
     settings.env.ANTHROPIC_BASE_URL = directConfig.baseUrl
 
     // 保存更新后的settings.json
@@ -554,10 +561,11 @@ export function registerConfigHandlers() {
       // 切换到代理模式
       console.log('[ConfigHandler] 切换到代理模式，删除API Key，设置CCR服务地址')
 
-      // 删除API Key (代理模式下不需要)
+      // 删除API Key和Token (代理模式下不需要)
       delete settings.env.ANTHROPIC_AUTH_TOKEN
+      delete settings.env.ANTHROPIC_API_KEY
       // 设置CCR服务地址
-      settings.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:3456'
+      settings.env.ANTHROPIC_BASE_URL = FloatingService.CCR_SERVICE_URL
     } else {
       // 切换到直连模式，需要从保存的直连配置中获取默认配置
       console.log('[ConfigHandler] 切换到直连模式，尝试恢复直连配置')
@@ -591,22 +599,32 @@ export function registerConfigHandlers() {
 
           if (defaultConfig) {
             console.log('[ConfigHandler] 使用直连配置:', defaultConfig.name)
-            settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+            // 根据useApiKey标志选择使用哪种认证方式
+            if (defaultConfig.useApiKey) {
+              settings.env.ANTHROPIC_API_KEY = defaultConfig.apiKey
+              delete settings.env.ANTHROPIC_AUTH_TOKEN
+            } else {
+              settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+              delete settings.env.ANTHROPIC_API_KEY
+            }
             settings.env.ANTHROPIC_BASE_URL = defaultConfig.baseUrl
           } else {
             console.log('[ConfigHandler] 未找到直连配置，使用默认官方API')
             settings.env.ANTHROPIC_AUTH_TOKEN = ''
+            delete settings.env.ANTHROPIC_API_KEY
             settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
           }
         } else {
           console.log('[ConfigHandler] 未找到保存的直连配置，使用默认官方API')
           settings.env.ANTHROPIC_AUTH_TOKEN = ''
+          delete settings.env.ANTHROPIC_API_KEY
           settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
         }
       } catch (directError) {
         console.error('[ConfigHandler] 读取直连配置失败:', directError)
         // 使用默认配置
         settings.env.ANTHROPIC_AUTH_TOKEN = ''
+        delete settings.env.ANTHROPIC_API_KEY
         settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
       }
     }
@@ -638,42 +656,122 @@ export function registerConfigHandlers() {
   // 设置WebDAV配置
   MainIPCService.handle('set-webdav-config', async (event, config) => {
     console.log('[ConfigHandler] 设置WebDAV配置')
-    setWebdavConfig(config)
-    return {
-      success: true,
-      message: 'WebDAV配置已保存'
+    try {
+      const saved = await setWebdavConfig(config)
+      if (saved) {
+        return {
+          success: true,
+          data: config,
+          message: 'WebDAV配置已保存'
+        }
+      } else {
+        return {
+          success: false,
+          error: 'WebDAV配置保存失败'
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 设置WebDAV配置失败:', error)
+      return {
+        success: false,
+        error: `设置WebDAV配置失败: ${error.message}`
+      }
     }
   })
 
   // 获取WebDAV配置
   MainIPCService.handle('get-webdav-config', async () => {
     console.log('[ConfigHandler] 获取WebDAV配置')
-    const config = getWebdavConfig()
-    return {
-      success: true,
-      data: config
+    try {
+      const config = await getWebdavConfig()
+      return {
+        success: true,
+        data: config
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 获取WebDAV配置失败:', error)
+      return {
+        success: false,
+        error: `获取WebDAV配置失败: ${error.message}`
+      }
     }
   })
 
   // 测试WebDAV连接
   MainIPCService.handle('test-webdav-connection', async () => {
     console.log('[ConfigHandler] 测试WebDAV连接')
-    const result = await testWebdavConnection()
-    return result
+    try {
+      const result = await testWebdavConnection()
+      if (result.success) {
+        return {
+          success: true,
+          data: null,
+          message: '连接测试成功'
+        }
+      } else {
+        return {
+          success: false,
+          error: result.error
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 测试WebDAV连接异常:', error)
+      return {
+        success: false,
+        error: `测试WebDAV连接异常: ${error.message}`
+      }
+    }
   })
 
   // 通过WebDAV备份数据
   MainIPCService.handle('backup-data-webdav', async () => {
     console.log('[ConfigHandler] 通过WebDAV备份数据')
-    const result = await backupData({ useWebdav: true })
-    return result
+    try {
+      const result = await backupData({ useWebdav: true })
+      if (result.success) {
+        return {
+          success: true,
+          data: result.backupPath || null,
+          message: result.message || '备份成功'
+        }
+      } else {
+        return {
+          success: false,
+          error: result.error
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] WebDAV备份数据异常:', error)
+      return {
+        success: false,
+        error: `WebDAV备份数据异常: ${error.message}`
+      }
+    }
   })
 
   // 列出WebDAV备份文件
   MainIPCService.handle('list-webdav-backups', async () => {
     console.log('[ConfigHandler] 列出WebDAV备份文件')
-    const result = await listWebdavBackups()
-    return result
+    try {
+      const result = await listWebdavBackups()
+      if (result.success) {
+        return {
+          success: true,
+          data: result.files || []
+        }
+      } else {
+        return {
+          success: false,
+          error: result.error
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 列出WebDAV备份文件异常:', error)
+      return {
+        success: false,
+        error: `列出WebDAV备份文件异常: ${error.message}`
+      }
+    }
   })
 
   console.log('[ConfigHandler] 配置处理器注册完成')

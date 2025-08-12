@@ -121,7 +121,7 @@ const api = {
   // 监听悬浮窗内容更新
   onUpdateContent(callback) {
     ipcRenderer.on('update-content', (event, data) => {
-      callback(data)
+      callback(event, data)
     })
   },
 

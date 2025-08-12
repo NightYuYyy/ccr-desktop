@@ -99,13 +99,17 @@ function createFloatingWindow() {
   // 显示窗口
   floatingWindow.show()
 
-  // {{ AURA-X: Modify - 使用统一的FloatingService并启动定期更新. Approval: 寸止确认. }}
-  setTimeout(async () => {
-    const modelInfo = await FloatingService.getCurrentInfo()
-    floatingWindow.webContents.send('update-content', modelInfo)
-    // 启动定期更新
-    startFloatingWindowUpdates()
-  }, 500)
+  // {{ AURA-X: Modify - 等待页面加载完成后再发送初始消息和启动定期更新. Approval: 寸止确认. }}
+  floatingWindow.webContents.on('did-finish-load', async () => {
+    try {
+      const modelInfo = await FloatingService.getCurrentInfo()
+      floatingWindow.webContents.send('update-content', modelInfo)
+      // 启动定期更新
+      startFloatingWindowUpdates()
+    } catch (error) {
+      console.error('[FloatingWindow] 初始消息发送失败:', error)
+    }
+  })
 }
 
 function createWindow() {
@@ -595,7 +599,8 @@ async function switchNetworkModeFromTray(isProxy) {
     if (isProxy) {
       // 切换到代理模式
       delete settings.env.ANTHROPIC_AUTH_TOKEN
-      settings.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:3456'
+      delete settings.env.ANTHROPIC_API_KEY
+      settings.env.ANTHROPIC_BASE_URL = FloatingService.CCR_SERVICE_URL
     } else {
       // 切换到直连模式，恢复直连配置
       try {
@@ -607,34 +612,32 @@ async function switchNetworkModeFromTray(isProxy) {
           const configs = directData.directConfigs || []
 
           // 查找默认配置
-          let defaultConfig = null
-
-          if (directData.settings && directData.settings.defaultConfig) {
-            defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
-          }
-
-          if (!defaultConfig) {
-            defaultConfig = configs.find((c) => c.isDefault)
-          }
-
-          if (!defaultConfig && configs.length > 0) {
-            defaultConfig = configs[0]
-          }
+          const defaultConfig = FloatingService.findDefaultConfig(configs, directData)
 
           if (defaultConfig) {
-            settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+            // 根据useApiKey标志选择使用哪种认证方式
+            if (defaultConfig.useApiKey) {
+              settings.env.ANTHROPIC_API_KEY = defaultConfig.apiKey
+              delete settings.env.ANTHROPIC_AUTH_TOKEN
+            } else {
+              settings.env.ANTHROPIC_AUTH_TOKEN = defaultConfig.apiKey
+              delete settings.env.ANTHROPIC_API_KEY
+            }
             settings.env.ANTHROPIC_BASE_URL = defaultConfig.baseUrl
           } else {
             settings.env.ANTHROPIC_AUTH_TOKEN = ''
+            delete settings.env.ANTHROPIC_API_KEY
             settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
           }
         } else {
           settings.env.ANTHROPIC_AUTH_TOKEN = ''
+          delete settings.env.ANTHROPIC_API_KEY
           settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
         }
       } catch (directError) {
         console.error('[Tray] 读取直连配置失败:', directError)
         settings.env.ANTHROPIC_AUTH_TOKEN = ''
+        delete settings.env.ANTHROPIC_API_KEY
         settings.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
       }
     }
@@ -686,7 +689,14 @@ async function applyDirectConfigFromTray(config) {
       settings.env = {}
     }
 
-    settings.env.ANTHROPIC_AUTH_TOKEN = config.apiKey
+    // 根据useApiKey标志选择使用哪种认证方式
+    if (config.useApiKey) {
+      settings.env.ANTHROPIC_API_KEY = config.apiKey
+      delete settings.env.ANTHROPIC_AUTH_TOKEN
+    } else {
+      settings.env.ANTHROPIC_AUTH_TOKEN = config.apiKey
+      delete settings.env.ANTHROPIC_API_KEY
+    }
     settings.env.ANTHROPIC_BASE_URL = config.baseUrl
 
     // 保存更新后的settings.json

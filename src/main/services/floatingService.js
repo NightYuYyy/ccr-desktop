@@ -11,6 +11,8 @@ const execAsync = promisify(exec)
  * 集中处理模型信息获取和服务状态检测逻辑，避免重复代码
  */
 export class FloatingService {
+  // CCR服务URL常量
+  static CCR_SERVICE_URL = 'http://127.0.0.1:3456'
   /**
    * 获取当前模型信息
    * @returns {Promise<{modelName: string}>}
@@ -19,7 +21,6 @@ export class FloatingService {
     try {
       // 获取当前模型名称
       const modelName = await this.getCurrentModelName()
-
       return { modelName }
     } catch (error) {
       console.error('[FloatingService] 获取信息失败:', error)
@@ -61,8 +62,7 @@ export class FloatingService {
 
       if (result.success && result.data && result.data.env) {
         const baseUrl = result.data.env.ANTHROPIC_BASE_URL
-        const CCR_SERVICE_URL = 'http://127.0.0.1:3456'
-        const isUsingCCR = baseUrl === CCR_SERVICE_URL
+        const isUsingCCR = baseUrl === this.CCR_SERVICE_URL
 
         return {
           isProxy: isUsingCCR,
@@ -121,46 +121,49 @@ export class FloatingService {
 
         let currentBaseUrl = null
         let currentApiKey = null
+        let isUsingApiKey = false
         if (claudeSettingsResult.success && claudeSettingsResult.data?.env) {
           currentBaseUrl = claudeSettingsResult.data.env.ANTHROPIC_BASE_URL
-          currentApiKey = claudeSettingsResult.data.env.ANTHROPIC_AUTH_TOKEN
+          // 检查两种认证方式
+          currentApiKey =
+            claudeSettingsResult.data.env.ANTHROPIC_AUTH_TOKEN ||
+            claudeSettingsResult.data.env.ANTHROPIC_API_KEY
+          isUsingApiKey = !!claudeSettingsResult.data.env.ANTHROPIC_API_KEY
           // 去掉末尾的斜杠以便匹配
           if (currentBaseUrl) {
             currentBaseUrl = currentBaseUrl.replace(/\/$/, '')
           }
         }
 
-        // 查找匹配当前BASE_URL和API_KEY的配置
+        // 查找匹配当前BASE_URL和API_KEY的配置，考虑认证方式
         let currentConfig = null
-        if (currentBaseUrl && currentApiKey) {
+        if (currentBaseUrl) {
           currentConfig = configs.find((c) => {
             const configUrl = c.baseUrl.replace(/\/$/, '')
-            return configUrl === currentBaseUrl && c.apiKey === currentApiKey
+            const configUseApiKey = c.useApiKey || false
+
+            // 如果配置使用API Key认证，需要匹配API_KEY
+            if (configUseApiKey) {
+              return (
+                configUrl === currentBaseUrl &&
+                c.apiKey === currentApiKey &&
+                configUseApiKey === isUsingApiKey
+              )
+            } else {
+              // 如果配置使用Token认证，只需要匹配BASE_URL
+              return configUrl === currentBaseUrl
+            }
           })
         }
 
-        // 如果找到匹配的配置，使用它
+        // 如果找到匹配的配置，使用它，并显示认证方式
         if (currentConfig) {
-          return `🔌 直连 | ${currentConfig.name}`
+          const authType = currentConfig.useApiKey ? 'API Key' : 'Token'
+          return `🔌 直连(${authType}) | ${currentConfig.name}`
         }
 
-        // 如果没有找到匹配的，按原来的逻辑查找默认配置
-        let defaultConfig = null
-
-        // 优先使用指定的默认配置
-        if (directData.settings && directData.settings.defaultConfig) {
-          defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
-        }
-
-        // 如果没有指定默认配置，查找标记为默认的配置
-        if (!defaultConfig) {
-          defaultConfig = configs.find((c) => c.isDefault)
-        }
-
-        // 如果还没有，使用第一个配置
-        if (!defaultConfig && configs.length > 0) {
-          defaultConfig = configs[0]
-        }
+        // 如果没有找到匹配的，查找默认配置
+        const defaultConfig = this.findDefaultConfig(configs, directData)
 
         if (defaultConfig) {
           return `🔌 直连 | ${defaultConfig.name}`
@@ -172,6 +175,35 @@ export class FloatingService {
       console.error('[FloatingService] 获取直连配置失败:', error)
       return '🔌 直连 | 获取失败'
     }
+  }
+
+  /**
+   * 查找默认配置
+   * @param {Array} configs - 配置数组
+   * @param {Object} directData - 直连配置数据
+   * @returns {Object|null} 默认配置对象
+   */
+  static findDefaultConfig(configs, directData) {
+    if (!configs || configs.length === 0) {
+      return null
+    }
+
+    // 优先使用指定的默认配置
+    if (directData?.settings?.defaultConfig) {
+      const defaultConfig = configs.find((c) => c.name === directData.settings.defaultConfig)
+      if (defaultConfig) {
+        return defaultConfig
+      }
+    }
+
+    // 查找标记为默认的配置
+    const markedDefault = configs.find((c) => c.isDefault)
+    if (markedDefault) {
+      return markedDefault
+    }
+
+    // 使用第一个配置
+    return configs[0]
   }
 
   /**

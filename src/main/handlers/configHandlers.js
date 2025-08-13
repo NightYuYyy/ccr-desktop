@@ -7,9 +7,9 @@ import {
   deleteProvider,
   updateDefaultModel,
   updateRouterModel,
-  updateLongContextThreshold,
-  backupData
+  updateLongContextThreshold
 } from '../services/configService.js'
+import { backupUnifiedConfig } from '../services/unifiedBackupService.js'
 import { FloatingService } from '../services/floatingService.js'
 import { ConfigManager } from '../services/configManager.js'
 import {
@@ -18,6 +18,7 @@ import {
   testWebdavConnection,
   listWebdavBackups
 } from '../services/webdavService.js'
+import { restoreFromBackupFile } from '../services/configRestoreService.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { writeFile } from 'fs/promises'
 import { getUserHomeDir, getDirectConfigPath } from '../utils/pathUtils.js'
@@ -727,7 +728,7 @@ export function registerConfigHandlers() {
   MainIPCService.handle('backup-data-webdav', async () => {
     console.log('[ConfigHandler] 通过WebDAV备份数据')
     try {
-      const result = await backupData({ useWebdav: true })
+      const result = await backupUnifiedConfig({ useWebdav: true })
       if (result.success) {
         return {
           success: true,
@@ -745,6 +746,31 @@ export function registerConfigHandlers() {
       return {
         success: false,
         error: `WebDAV备份数据异常: ${error.message}`
+      }
+    }
+  })
+
+  // 从备份文件恢复配置
+  MainIPCService.handle('restore-from-backup', async (event, backupFilePath) => {
+    console.log('[ConfigHandler] 从备份文件恢复配置:', backupFilePath)
+    try {
+      const result = await restoreFromBackupFile(backupFilePath)
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message || '配置恢复成功'
+        }
+      } else {
+        return {
+          success: false,
+          error: result.error
+        }
+      }
+    } catch (error) {
+      console.error('[ConfigHandler] 从备份文件恢复配置异常:', error)
+      return {
+        success: false,
+        error: `从备份文件恢复配置异常: ${error.message}`
       }
     }
   })

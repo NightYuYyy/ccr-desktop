@@ -11,7 +11,9 @@
       "Bash(pnpm build:win:*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm add:*)",
-      "Bash(pnpm exec eslint --fix src/renderer/src/components/BackupDataTab.vue src/renderer/src/components/ClaudeConfigTab.vue src/renderer/src/components/WebdavConfig.vue)"
+      "Bash(pnpm exec eslint --fix src/renderer/src/components/BackupDataTab.vue src/renderer/src/components/ClaudeConfigTab.vue src/renderer/src/components/WebdavConfig.vue)",
+      "Bash(mkdir -p ~/.ccr-desktop)",
+      "Bash(node /Users/night/Code/ccr-desktop/src/main/test/configTest.js)"
     ],
     "deny": []
   }

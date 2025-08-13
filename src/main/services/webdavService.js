@@ -1,5 +1,5 @@
 import { createClient } from 'webdav'
-import { getClaudeCodeRouterSettingsPath } from '../utils/pathUtils.js'
+import { getClaudeCodeRouterSettingsPath, getCCRDesktopConfigPath } from '../utils/pathUtils.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { ConfigManager } from './configManager.js'
 import fs from 'fs/promises'
@@ -190,11 +190,11 @@ export async function backupDataToWebdav() {
     }
 
     // 获取本地配置文件路径
-    const configPath = getClaudeCodeRouterSettingsPath()
+    const configPath = getCCRDesktopConfigPath()
 
     // 生成备份文件名 (包含时间戳)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const backupFileName = `settings-backup-${timestamp}.json`
+    const backupFileName = `ccr-desktop-backup-${timestamp}.json`
     const remoteBackupPath = `${config.remotePath}/${backupFileName}`
 
     // 读取本地配置文件内容
@@ -226,7 +226,7 @@ export async function restoreDataFromWebdav(remoteFilePath) {
     const client = createWebdavClient()
 
     // 获取本地配置文件路径
-    const configPath = getClaudeCodeRouterSettingsPath()
+    const configPath = getCCRDesktopConfigPath()
 
     // 从WebDAV下载文件内容
     const fileContent = await client.getFileContents(remoteFilePath, { format: 'text' })
@@ -263,7 +263,7 @@ export async function listWebdavBackups() {
       .filter(
         (item) =>
           item.type === 'file' &&
-          item.basename.startsWith('settings-backup-') &&
+          item.basename.startsWith('ccr-desktop-backup-') &&
           item.basename.endsWith('.json')
       )
       .map((item) => ({

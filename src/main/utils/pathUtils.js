@@ -50,6 +50,22 @@ export function getDirectConfigPath() {
 }
 
 /**
+ * 获取 CCR Desktop 配置目录路径
+ * @returns {string} CCR Desktop配置目录的绝对路径
+ */
+export function getCCRDesktopConfigDir() {
+  return join(getUserHomeDir(), '.ccr-desktop')
+}
+
+/**
+ * 获取 CCR Desktop 设置文件路径
+ * @returns {string} CCR Desktop设置文件的绝对路径
+ */
+export function getCCRDesktopConfigPath() {
+  return join(getCCRDesktopConfigDir(), 'config.json')
+}
+
+/**
  * 规范化文件路径（处理相对路径和特殊字符）
  * @param {string} filePath - 原始文件路径
  * @returns {string} 规范化后的绝对路径

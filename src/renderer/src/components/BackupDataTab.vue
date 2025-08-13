@@ -233,7 +233,7 @@ const restoreBackup = async (backupFile) => {
     .then(async () => {
       restoringBackup.value = backupFile.path
       try {
-        const result = await window.api.restoreDataFromWebdav(backupFile.path)
+        const result = await window.api.restoreFromBackup(backupFile.path)
         if (result.success) {
           ElMessage.success('数据恢复成功')
         } else {

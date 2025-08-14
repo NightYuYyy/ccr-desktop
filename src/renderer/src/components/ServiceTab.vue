@@ -148,8 +148,12 @@ watch(
 )
 
 // 命令输出监听器
-const handleCommandOutput = (event, { data }) => {
-  serviceOutput.value += data
+const handleCommandOutput = (event, data) => {
+  if (data && data.data) {
+    serviceOutput.value += data.data
+  } else if (typeof data === 'string') {
+    serviceOutput.value += data
+  }
   // 滚动到底部
   nextTick(() => {
     const outputElement = document.querySelector('.command-output')

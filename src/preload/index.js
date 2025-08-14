@@ -37,7 +37,7 @@ const api = {
   // 监听命令实时输出
   onCommandOutput(callback) {
     ipcRenderer.on('command-output', (event, data) => {
-      callback(data)
+      callback(event, data)
     })
   },
 

@@ -13,7 +13,9 @@
       "Bash(pnpm add:*)",
       "Bash(pnpm exec eslint --fix src/renderer/src/components/BackupDataTab.vue src/renderer/src/components/ClaudeConfigTab.vue src/renderer/src/components/WebdavConfig.vue)",
       "Bash(mkdir -p ~/.ccr-desktop)",
-      "Bash(node /Users/night/Code/ccr-desktop/src/main/test/configTest.js)"
+      "Bash(node /Users/night/Code/ccr-desktop/src/main/test/configTest.js)",
+      "Bash(grep -n -A 30 \"execCommand.*=\" src/main/handlers/configHandlers.js)",
+      "Bash(grep -n -A 40 -B 2 \"exec-command\" src/main/handlers/configHandlers.js)"
     ],
     "deny": []
   }

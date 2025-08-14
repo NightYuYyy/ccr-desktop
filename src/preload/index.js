@@ -203,11 +203,6 @@ const api = {
   },
 
   // === 备份恢复相关API ===
-  async backupDataWebdav() {
-    const result = await ipcRenderer.invoke('backup-data-webdav')
-    return result.success ? result.data : result
-  },
-
   async restoreFromBackup(backupFilePath) {
     const result = await ipcRenderer.invoke('restore-from-backup', backupFilePath)
     return result.success ? result.data : result

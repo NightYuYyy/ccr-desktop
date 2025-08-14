@@ -19,33 +19,147 @@ export function useClaudeSettings() {
   const jsonValid = ref(false)
   const jsonEditor = ref(null)
 
-  /**
-   * JSON语法高亮
-   * @param {string} jsonString - JSON字符串
-   * @returns {string} 高亮后的HTML
-   */
-  const highlightJson = (jsonString) => {
-    if (!jsonString) return ''
+  // 撤销/重做历史
+  const history = ref([])
+  const historyIndex = ref(-1)
+  const MAX_HISTORY = 100 // 最大历史记录数
+  let lastInputTime = 0 // 记录最后一次输入时间
+  let pendingChanges = '' // 待处理的连续输入
+  const INPUT_GROUP_DELAY = 1000 // 1秒内的输入视为一组操作
 
-    return jsonString
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/(".*?"):/g, '<span class="json-key">$1</span>:')
-      .replace(/:\s*(true|false|null)/g, ': <span class="json-boolean">$1</span>')
-      .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
-      .replace(/:\s*"([^"]*)"/g, ': <span class="json-string">"$1"</span>')
-      .replace(/(\{|\}|\[|\]|,)/g, '<span class="json-bracket">$1</span>')
+  /**
+   * 保存当前光标位置
+   */
+  const saveCursorPosition = () => {
+    if (!jsonEditor.value) return { start: 0, end: 0 }
+
+    return {
+      start: jsonEditor.value.selectionStart,
+      end: jsonEditor.value.selectionEnd
+    }
+  }
+
+  /**
+   * 恢复光标位置
+   * @param {Object} position - 光标位置对象 {start, end}
+   */
+  const restoreCursorPosition = (position) => {
+    if (!jsonEditor.value || !position) return
+
+    jsonEditor.value.setSelectionRange(position.start, position.end)
+    jsonEditor.value.focus()
+  }
+
+  /**
+   * 添加历史记录
+   * @param {string} content - 内容
+   * @param {boolean} force - 是否强制添加（不合并）
+   */
+  const addHistory = (content, force = false) => {
+    const now = Date.now()
+
+    // 如果是强制添加或者距离上次输入超过1秒，或者内容变化很大，创建新的历史记录
+    if (
+      force ||
+      now - lastInputTime > INPUT_GROUP_DELAY ||
+      !pendingChanges ||
+      Math.abs(content.length - pendingChanges.length) > 10
+    ) {
+      // 如果当前不在历史记录的末尾，删除后面的历史
+      if (historyIndex.value < history.value.length - 1) {
+        history.value = history.value.slice(0, historyIndex.value + 1)
+      }
+
+      // 保存当前光标位置
+      const cursorPosition = saveCursorPosition()
+
+      // 添加新历史记录（包含内容和光标位置）
+      history.value.push({
+        content: content,
+        cursorPosition: cursorPosition
+      })
+      historyIndex.value = history.value.length - 1
+
+      // 限制历史记录数量
+      if (history.value.length > MAX_HISTORY) {
+        history.value.shift()
+        historyIndex.value = history.value.length - 1
+      }
+
+      pendingChanges = content
+    } else {
+      // 合并到当前历史记录
+      if (historyIndex.value >= 0) {
+        history.value[historyIndex.value].content = content
+        history.value[historyIndex.value].cursorPosition = saveCursorPosition()
+      }
+    }
+
+    lastInputTime = now
+  }
+
+  /**
+   * 撤销操作
+   */
+  const undo = () => {
+    if (historyIndex.value > 0) {
+      historyIndex.value--
+      const historyItem = history.value[historyIndex.value]
+      claudeSettingsContent.value = historyItem.content
+      // 更新编辑器内容，同时传入历史记录中的光标位置
+      updateJsonEditorWithCustomCursor(historyItem.cursorPosition)
+      validateJson()
+      // 重置输入时间跟踪，避免撤销后的输入被合并
+      lastInputTime = Date.now()
+      pendingChanges = historyItem.content
+      return true
+    }
+    return false
+  }
+
+  /**
+   * 重做操作
+   */
+  const redo = () => {
+    if (historyIndex.value < history.value.length - 1) {
+      historyIndex.value++
+      const historyItem = history.value[historyIndex.value]
+      claudeSettingsContent.value = historyItem.content
+      // 更新编辑器内容，同时传入历史记录中的光标位置
+      updateJsonEditorWithCustomCursor(historyItem.cursorPosition)
+      validateJson()
+      // 重置输入时间跟踪，避免重做后的输入被合并
+      lastInputTime = Date.now()
+      pendingChanges = historyItem.content
+      return true
+    }
+    return false
   }
 
   /**
    * 更新JSON编辑器内容
+   * @param {boolean} preserveCursor - 是否保持光标位置
    */
-  const updateJsonEditor = () => {
-    if (jsonEditor.value) {
-      const highlighted = highlightJson(claudeSettingsContent.value)
-      jsonEditor.value.innerHTML =
-        highlighted || '<span class="json-placeholder">请输入有效的JSON配置...</span>'
+  const updateJsonEditor = (preserveCursor = false) => {
+    // 使用 v-model，不需要手动更新内容
+    if (preserveCursor) {
+      // 如果需要保持光标位置，稍后恢复
+      setTimeout(() => {
+        restoreCursorPosition(saveCursorPosition())
+      }, 0)
+    }
+  }
+
+  /**
+   * 使用自定义光标位置更新JSON编辑器内容
+   * @param {Object} cursorPosition - 自定义光标位置
+   */
+  const updateJsonEditorWithCustomCursor = (cursorPosition) => {
+    // 使用 v-model，不需要手动更新内容
+    if (cursorPosition) {
+      setTimeout(() => {
+        restoreCursorPosition(cursorPosition)
+      }, 0)
     }
   }
 
@@ -53,9 +167,10 @@ export function useClaudeSettings() {
    * 处理JSON输入
    * @param {Event} event - 输入事件
    */
-  const handleJsonInput = (event) => {
-    const content = event.target.innerText || event.target.textContent
-    claudeSettingsContent.value = content
+  const handleJsonInput = () => {
+    // 使用 v-model，内容已经自动更新
+    // 只需要添加历史记录和验证
+    addHistory(claudeSettingsContent.value)
     validateJson()
   }
 
@@ -63,12 +178,11 @@ export function useClaudeSettings() {
    * 处理JSON粘贴
    * @param {Event} event - 粘贴事件
    */
-  const handleJsonPaste = (event) => {
-    event.preventDefault()
-    const pastedText = event.clipboardData.getData('text')
-    document.execCommand('insertText', false, pastedText)
+  const handleJsonPaste = () => {
+    // 让粘贴正常进行，然后在之后处理历史记录
     setTimeout(() => {
-      claudeSettingsContent.value = jsonEditor.value.innerText || jsonEditor.value.textContent
+      // 粘贴操作强制创建新的历史记录
+      addHistory(claudeSettingsContent.value, true)
       validateJson()
     }, 0)
   }
@@ -81,7 +195,59 @@ export function useClaudeSettings() {
     // 支持Tab键缩进
     if (event.key === 'Tab') {
       event.preventDefault()
-      document.execCommand('insertText', false, '  ')
+      const textarea = jsonEditor.value
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+      const beforeText = text.substring(0, start)
+      const afterText = text.substring(end)
+
+      // 插入两个空格
+      textarea.value = beforeText + '  ' + afterText
+      claudeSettingsContent.value = textarea.value
+
+      // 设置光标位置
+      textarea.selectionStart = textarea.selectionEnd = start + 2
+
+      // Tab键操作强制创建新的历史记录
+      addHistory(claudeSettingsContent.value, true)
+      validateJson()
+      return
+    }
+
+    // 支持Ctrl+Z/Cmd+Z撤销和Ctrl+Y/Cmd+Y重做
+    if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+      event.preventDefault()
+      if (event.shiftKey) {
+        // Ctrl+Shift+Z 或 Cmd+Shift+Z 为重做
+        redo()
+      } else {
+        // Ctrl+Z 或 Cmd+Z 为撤销
+        undo()
+      }
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+      event.preventDefault()
+      redo()
+      return
+    }
+
+    // 支持Ctrl+A/Cmd+A全选
+    if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+      event.preventDefault()
+      jsonEditor.value.select()
+      return
+    }
+
+    // 支持Ctrl+S/Cmd+S保存
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault()
+      // 这里不直接调用保存函数，因为需要访问父组件的函数
+      // 可以通过自定义事件通知父组件保存
+      window.dispatchEvent(new CustomEvent('claude-settings-save-shortcut'))
+      return
     }
   }
 
@@ -114,8 +280,10 @@ export function useClaudeSettings() {
     try {
       const parsed = JSON.parse(claudeSettingsContent.value)
       const formatted = JSON.stringify(parsed, null, 2)
+      // 格式化操作强制创建新的历史记录
+      addHistory(claudeSettingsContent.value, true)
       claudeSettingsContent.value = formatted
-      updateJsonEditor()
+      updateJsonEditorWithCustomCursor({ start: 0, end: 0 })
       validateJson()
       showMessage('JSON 已格式化', 'success')
     } catch {
@@ -141,7 +309,20 @@ export function useClaudeSettings() {
       const readResult = await readFile(pathResult.data)
       if (readResult.success) {
         // 格式化JSON并显示
-        claudeSettingsContent.value = JSON.stringify(readResult.data, null, 2)
+        const formattedContent = JSON.stringify(readResult.data, null, 2)
+        claudeSettingsContent.value = formattedContent
+        // 初始化历史记录
+        history.value = [
+          {
+            content: formattedContent,
+            cursorPosition: { start: 0, end: 0 }
+          }
+        ]
+        historyIndex.value = 0
+        // 重置输入时间跟踪
+        lastInputTime = Date.now()
+        pendingChanges = formattedContent
+
         jsonError.value = ''
         jsonValid.value = true
         showClaudeSettingsDialog.value = true
@@ -226,12 +407,21 @@ export function useClaudeSettings() {
     }
   }
 
-  // 监听内容变化时更新编辑器
-  watch(claudeSettingsContent, () => {
-    if (showClaudeSettingsDialog.value) {
-      setTimeout(() => {
-        updateJsonEditor()
-      }, 0)
+  // 监听内容变化时更新编辑器（仅在需要时更新，比如撤销/重做操作）
+  watch(claudeSettingsContent, (newContent, oldContent) => {
+    if (showClaudeSettingsDialog.value && newContent !== oldContent) {
+      // 只在撤销/重做等操作时更新编辑器显示
+      // 正常输入时不需要更新，因为innerHTML已经被用户输入改变
+      const isUndoRedoOperation =
+        historyIndex.value >= 0 &&
+        history.value[historyIndex.value] &&
+        history.value[historyIndex.value].content === newContent
+
+      if (isUndoRedoOperation) {
+        setTimeout(() => {
+          updateJsonEditorWithCustomCursor(history.value[historyIndex.value].cursorPosition)
+        }, 0)
+      }
     }
   })
 
@@ -245,8 +435,8 @@ export function useClaudeSettings() {
     jsonEditor,
 
     // 方法
-    highlightJson,
     updateJsonEditor,
+    updateJsonEditorWithCustomCursor,
     handleJsonInput,
     handleJsonPaste,
     handleJsonKeydown,

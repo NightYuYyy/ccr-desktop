@@ -50,7 +50,7 @@ export async function initCCRDesktopConfig() {
   try {
     await ensureConfigDir()
     const configPath = getCCRDesktopConfigPath()
-    
+
     // 检查配置文件是否存在
     const readResult = await readJsonFile(configPath)
     if (!readResult.success) {
@@ -64,7 +64,7 @@ export async function initCCRDesktopConfig() {
       }
       console.log('[CCRDesktopConfig] 默认配置文件已创建:', configPath)
     }
-    
+
     return { success: true }
   } catch (error) {
     return {
@@ -82,7 +82,7 @@ export async function readCCRDesktopConfig() {
   try {
     const configPath = getCCRDesktopConfigPath()
     const result = await readJsonFile(configPath)
-    
+
     if (result.success) {
       return result
     } else {
@@ -117,13 +117,13 @@ export async function saveCCRDesktopConfig(configData) {
   try {
     await ensureConfigDir()
     const configPath = getCCRDesktopConfigPath()
-    
+
     // 更新最后修改时间
     const configToSave = {
       ...configData,
       lastModified: new Date().toISOString()
     }
-    
+
     const result = await writeJsonFile(configPath, configToSave)
     return result
   } catch (error) {
@@ -147,15 +147,15 @@ export async function updateCCRDesktopConfigSection(section, sectionData) {
     if (!readResult.success) {
       return readResult
     }
-    
+
     const config = readResult.data
-    
+
     // 更新指定部分
     config[section] = {
       ...config[section],
       ...sectionData
     }
-    
+
     // 保存更新后的配置
     return await saveCCRDesktopConfig(config)
   } catch (error) {

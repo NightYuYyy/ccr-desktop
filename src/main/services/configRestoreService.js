@@ -1,6 +1,5 @@
 import { ConfigManager } from './configManager.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
-import { readCCRDesktopConfig, saveCCRDesktopConfig } from './ccrDesktopConfigService.js'
 
 /**
  * 配置恢复服务
@@ -20,27 +19,28 @@ export async function restoreCCRConfigFromSnapshot(ccrSnapshot) {
         error: 'CCR配置快照为空'
       }
     }
-    
+
     // 获取CCR配置文件路径
     const configPath = ConfigManager.getCCRPaths().configPath
-    
+
     // 读取现有的CCR配置
     const readResult = await readJsonFile(configPath)
     let existingConfig = {}
-    
+
     if (readResult.success) {
       existingConfig = readResult.data
     }
-    
+
     // 从快照恢复配置
     // 保留原有的非路由配置
     const restoredConfig = {
       ...existingConfig,
-      Providers: ccrSnapshot.providers?.map(provider => ({
-        name: provider.name,
-        models: provider.models || []
-        // 注意：这里不包含api_base_url和api_key，因为这些是敏感信息，不应该在快照中存储
-      })) || [],
+      Providers:
+        ccrSnapshot.providers?.map((provider) => ({
+          name: provider.name,
+          models: provider.models || []
+          // 注意：这里不包含api_base_url和api_key，因为这些是敏感信息，不应该在快照中存储
+        })) || [],
       Router: {
         ...existingConfig.Router,
         default: ccrSnapshot.router?.default || '',
@@ -50,7 +50,7 @@ export async function restoreCCRConfigFromSnapshot(ccrSnapshot) {
         longContextThreshold: ccrSnapshot.router?.longContextThreshold || 5000
       }
     }
-    
+
     // 保存恢复的配置
     const saveResult = await writeJsonFile(configPath, restoredConfig)
     return saveResult
@@ -75,25 +75,25 @@ export async function restoreClaudeConfigFromSnapshot(claudeSnapshot) {
         error: '直连配置快照为空'
       }
     }
-    
+
     // 获取直连配置文件路径
     const configPath = ConfigManager.getDirectConfigPath()
-    
+
     // 读取现有的直连配置
     const readResult = await readJsonFile(configPath)
     let existingConfig = {}
-    
+
     if (readResult.success) {
       existingConfig = readResult.data
     }
-    
+
     // 从快照恢复配置
     const restoredConfig = {
       ...existingConfig,
       directConfigs: claudeSnapshot.directConfigs || [],
       settings: claudeSnapshot.settings || {}
     }
-    
+
     // 保存恢复的配置
     const saveResult = await writeJsonFile(configPath, restoredConfig)
     return saveResult
@@ -118,27 +118,27 @@ export async function restoreFromSnapshot(snapshotData) {
         error: '快照数据为空'
       }
     }
-    
+
     // 并行恢复两个配置
     const [ccrResult, claudeResult] = await Promise.all([
       restoreCCRConfigFromSnapshot(snapshotData.ccrConfig),
       restoreClaudeConfigFromSnapshot(snapshotData.directConfig)
     ])
-    
+
     if (!ccrResult.success) {
       return {
         success: false,
         error: `恢复CCR配置失败: ${ccrResult.error}`
       }
     }
-    
+
     if (!claudeResult.success) {
       return {
         success: false,
         error: `恢复Claude配置失败: ${claudeResult.error}`
       }
     }
-    
+
     return {
       success: true,
       message: '配置恢复成功'
@@ -166,9 +166,9 @@ export async function restoreFromBackupFile(backupFilePath) {
         error: `读取备份文件失败: ${readResult.error}`
       }
     }
-    
+
     const backupData = readResult.data
-    
+
     // 检查是否包含快照数据
     if (!backupData.backupSnapshot) {
       return {
@@ -176,7 +176,7 @@ export async function restoreFromBackupFile(backupFilePath) {
         error: '备份文件不包含配置快照数据'
       }
     }
-    
+
     // 从快照恢复配置
     return await restoreFromSnapshot(backupData.backupSnapshot)
   } catch (error) {

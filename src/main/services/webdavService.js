@@ -1,5 +1,5 @@
 import { createClient } from 'webdav'
-import { getClaudeCodeRouterSettingsPath, getCCRDesktopConfigPath } from '../utils/pathUtils.js'
+import { getCCRDesktopConfigPath } from '../utils/pathUtils.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { ConfigManager } from './configManager.js'
 import fs from 'fs/promises'

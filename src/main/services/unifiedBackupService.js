@@ -1,5 +1,9 @@
 import { backupDataToWebdav } from './webdavService.js'
-import { readCCRDesktopConfig, saveCCRDesktopConfig, updateConfigSnapshot } from './ccrDesktopConfigService.js'
+import {
+  readCCRDesktopConfig,
+  saveCCRDesktopConfig,
+  updateConfigSnapshot
+} from './ccrDesktopConfigService.js'
 import { createConfigSnapshot } from './configSnapshotService.js'
 import path from 'path'
 import fs from 'fs/promises'
@@ -18,7 +22,7 @@ import fs from 'fs/promises'
  */
 export async function backupUnifiedConfig(options = {}) {
   const { useWebdav = false, updateSnapshot = true } = options
-  
+
   try {
     // 如果需要更新快照，先创建并保存快照
     if (updateSnapshot) {
@@ -33,7 +37,7 @@ export async function backupUnifiedConfig(options = {}) {
         console.warn('[BackupService] 创建配置快照失败:', snapshotResult.error)
       }
     }
-    
+
     // 读取我们的统一配置文件
     const configResult = await readCCRDesktopConfig()
     if (!configResult.success) {
@@ -42,7 +46,7 @@ export async function backupUnifiedConfig(options = {}) {
         error: `读取配置失败: ${configResult.error}`
       }
     }
-    
+
     if (useWebdav) {
       // 使用WebDAV备份我们的统一配置文件
       return await backupToWebdav(configResult.data)
@@ -68,15 +72,15 @@ async function backupLocally(configData) {
     // 获取备份目录路径
     const configDir = path.join(process.env.HOME || process.env.USERPROFILE, '.ccr-desktop')
     const backupDir = path.join(configDir, 'backups')
-    
+
     // 确保备份目录存在
     await fs.mkdir(backupDir, { recursive: true })
-    
+
     // 生成备份文件名 (包含时间戳)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupFileName = `ccr-desktop-backup-${timestamp}.json`
     const backupPath = path.join(backupDir, backupFileName)
-    
+
     // 写入备份文件
     const backupResult = await saveJsonFile(backupPath, configData)
     if (!backupResult.success) {
@@ -85,7 +89,7 @@ async function backupLocally(configData) {
         error: `创建备份失败: ${backupResult.error}`
       }
     }
-    
+
     return {
       success: true,
       backupPath,
@@ -115,7 +119,7 @@ async function backupToWebdav(configData) {
         error: `保存配置文件失败: ${saveResult.error}`
       }
     }
-    
+
     // 调用WebDAV备份服务
     const webdavResult = await backupDataToWebdav()
     return webdavResult

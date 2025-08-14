@@ -14,15 +14,16 @@ export async function readCCRConfigSnapshot() {
   try {
     const configPath = ConfigManager.getCCRPaths().configPath
     const result = await readJsonFile(configPath)
-    
+
     if (result.success) {
       // 提取需要备份的CCR配置信息
       const config = result.data
       const snapshot = {
-        providers: config.Providers?.map(provider => ({
-          name: provider.name,
-          models: provider.models || []
-        })) || [],
+        providers:
+          config.Providers?.map((provider) => ({
+            name: provider.name,
+            models: provider.models || []
+          })) || [],
         router: {
           default: config.Router?.default || '',
           background: config.Router?.background || '',
@@ -31,7 +32,7 @@ export async function readCCRConfigSnapshot() {
           longContextThreshold: config.Router?.longContextThreshold || 5000
         }
       }
-      
+
       return {
         success: true,
         data: snapshot
@@ -55,7 +56,7 @@ export async function readClaudeConfigSnapshot() {
   try {
     const configPath = ConfigManager.getDirectConfigPath()
     const result = await readJsonFile(configPath)
-    
+
     if (result.success) {
       // 提取需要备份的直连配置信息
       const config = result.data
@@ -63,7 +64,7 @@ export async function readClaudeConfigSnapshot() {
         directConfigs: config.directConfigs || [],
         settings: config.settings || {}
       }
-      
+
       return {
         success: true,
         data: snapshot
@@ -90,27 +91,27 @@ export async function createConfigSnapshot() {
       readCCRConfigSnapshot(),
       readClaudeConfigSnapshot()
     ])
-    
+
     if (!ccrSnapshot.success) {
       return {
         success: false,
         error: `读取CCR配置失败: ${ccrSnapshot.error}`
       }
     }
-    
+
     if (!claudeSnapshot.success) {
       return {
         success: false,
         error: `读取Claude配置失败: ${claudeSnapshot.error}`
       }
     }
-    
+
     const snapshot = {
       ccrConfig: ccrSnapshot.data,
       directConfig: claudeSnapshot.data,
       timestamp: new Date().toISOString()
     }
-    
+
     return {
       success: true,
       data: snapshot

@@ -232,6 +232,26 @@ const openClaudeConfigFolder = async () => {
 // 编辑Claude settings.json的包装函数
 const editClaudeSettingsWrapper = async () => {
   await editClaudeSettings(window.api.getClaudeSettingsPath, window.api.readFile)
+
+  // 添加快捷键保存事件监听器
+  const handleSaveShortcut = () => {
+    saveClaudeSettingsWrapper()
+  }
+
+  // 监听快捷键保存事件
+  window.addEventListener('claude-settings-save-shortcut', handleSaveShortcut)
+
+  // 监听对话框关闭事件以移除监听器
+  const dialogCloseHandler = () => {
+    window.removeEventListener('claude-settings-save-shortcut', handleSaveShortcut)
+    // 移除自身监听器
+    document
+      .querySelector('.claude-settings-dialog')
+      ?.removeEventListener('close', dialogCloseHandler)
+  }
+
+  // 添加对话框关闭监听器
+  document.querySelector('.claude-settings-dialog')?.addEventListener('close', dialogCloseHandler)
 }
 
 // 保存Claude settings.json的包装函数
@@ -1087,16 +1107,19 @@ const handleGlobalProxyChange = async (value) => {
 
           <!-- JSON 编辑器 -->
           <div class="json-editor-container">
-            <div
+            <textarea
               ref="jsonEditor"
+              v-model="claudeSettingsContent"
               class="json-editor"
               :class="{ 'json-error': jsonError, 'json-success': jsonValid }"
-              contenteditable="true"
               spellcheck="false"
               @input="handleJsonInput"
               @paste="handleJsonPaste"
               @keydown="handleJsonKeydown"
-            ></div>
+              @mouseup="saveCursorPosition"
+              @keyup="saveCursorPosition"
+              @focus="saveCursorPosition"
+            ></textarea>
 
             <!-- 错误提示 -->
             <div v-if="jsonError" class="json-error-message">
@@ -1237,9 +1260,14 @@ const handleGlobalProxyChange = async (value) => {
   line-height: 1.6;
   background: #f8fafc;
   color: #374151;
-  white-space: pre-wrap;
+  white-space: pre;
   outline: none;
   tab-size: 2;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .json-editor.json-error {
@@ -1250,34 +1278,6 @@ const handleGlobalProxyChange = async (value) => {
 .json-editor.json-success {
   border-color: #10b981;
   background: #f0fdf4;
-}
-
-.json-editor .json-placeholder {
-  color: #9ca3af;
-  font-style: italic;
-}
-
-.json-editor .json-key {
-  color: #dc2626;
-  font-weight: 600;
-}
-
-.json-editor .json-string {
-  color: #059669;
-}
-
-.json-editor .json-number {
-  color: #2563eb;
-}
-
-.json-editor .json-boolean {
-  color: #7c3aed;
-  font-weight: 600;
-}
-
-.json-editor .json-bracket {
-  color: #6b7280;
-  font-weight: 500;
 }
 
 .json-error-message {

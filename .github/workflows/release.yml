@@ -63,5 +63,30 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
+        body: |
+          ## 🎉 CCR Desktop ${{ github.ref_name }} 发布
+          
+          这是一个基于 Electron 的桌面应用，用于管理 Claude Code Router (CCR) 服务。
+          
+          ### ✨ 新特性
+          - 多窗口架构设计，包含主管理界面和悬浮窗状态显示
+          - 统一的 CCR 配置管理，支持多 Provider 配置
+          - 实时服务状态监控和控制
+          - 网络模式智能切换（代理模式/直连模式）
+          - WebDAV 远程备份和本地备份功能
+          
+          ### 📦 安装说明
+          - **Windows**: 下载 `.exe` 文件安装
+          - **macOS**: 下载 `.dmg` 文件安装
+          - **Linux**: 下载 `.AppImage` 或 `.deb` 文件安装
+          
+          ### 🚀 使用方法
+          1. 启动应用后，配置 CCR 服务提供商信息
+          2. 启动 CCR 服务
+          3. 通过悬浮窗实时查看服务状态
+          4. 支持网络模式切换和配置备份
+          
+          ---
+          🤖 由 [Claude Code](https://claude.ai/code) 自动构建发布
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

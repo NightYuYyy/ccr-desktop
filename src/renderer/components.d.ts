@@ -31,6 +31,7 @@ declare module 'vue' {
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
+    JsonEditor: typeof import('./src/components/JsonEditor.vue')['default']
     MultiModelConfig: typeof import('./src/components/MultiModelConfig.vue')['default']
     ProviderCard: typeof import('./src/components/ProviderCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

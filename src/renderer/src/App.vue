@@ -6,6 +6,7 @@ import ServiceTab from './components/ServiceTab.vue'
 import ClaudeConfigTab from './components/ClaudeConfigTab.vue'
 import MultiModelConfig from './components/MultiModelConfig.vue'
 import BackupDataTab from './components/BackupDataTab.vue'
+import JsonEditor from './components/JsonEditor.vue'
 import { useClaudeSettings } from './composables/useClaudeSettings.js'
 import { deepCloneJson } from './utils/jsonUtils.js'
 
@@ -58,6 +59,12 @@ const newProvider = ref({
 const newModelInput = ref('')
 const newTransformerText = ref('')
 const selectedProviderTransformerText = ref('')
+
+// Transformer JSON 验证状态
+const selectedProviderTransformerValid = ref(false)
+const selectedProviderTransformerError = ref('')
+const newTransformerValid = ref(false)
+const newTransformerError = ref('')
 
 // 自动加载配置
 onMounted(() => {
@@ -421,6 +428,10 @@ const deleteProvider = async () => {
 const saveProviderConfig = async () => {
   // 验证并解析transformer JSON
   if (selectedProviderTransformerText.value.trim()) {
+    if (!selectedProviderTransformerValid.value || selectedProviderTransformerError.value) {
+      showMessage('Transformer JSON格式错误: ' + selectedProviderTransformerError.value, 'error')
+      return
+    }
     try {
       selectedProvider.value.transformer = JSON.parse(selectedProviderTransformerText.value)
     } catch {
@@ -478,6 +489,10 @@ const saveNewProvider = async () => {
 
   // 解析transformer JSON
   if (newTransformerText.value.trim()) {
+    if (!newTransformerValid.value || newTransformerError.value) {
+      showMessage('Transformer JSON格式错误: ' + newTransformerError.value, 'error')
+      return
+    }
     try {
       newProvider.value.transformer = JSON.parse(newTransformerText.value)
     } catch {
@@ -691,6 +706,23 @@ const handleGlobalProxyChange = async (value) => {
     showMessage(`切换异常: ${error.message}`, 'error')
     console.error('[App] 网络模式切换异常:', error)
   }
+}
+
+// Transformer JSON 编辑器事件处理器
+const handleTransformerValidChange = (isValid) => {
+  selectedProviderTransformerValid.value = isValid
+}
+
+const handleTransformerErrorChange = (error) => {
+  selectedProviderTransformerError.value = error
+}
+
+const handleNewTransformerValidChange = (isValid) => {
+  newTransformerValid.value = isValid
+}
+
+const handleNewTransformerErrorChange = (error) => {
+  newTransformerError.value = error
 }
 </script>
 
@@ -907,11 +939,12 @@ const handleGlobalProxyChange = async (value) => {
         <!-- 转换器配置 -->
         <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">转换器配置</label>
-          <el-input
+          <JsonEditor
             v-model="selectedProviderTransformerText"
-            type="textarea"
-            :rows="3"
             placeholder="请输入转换器配置 (JSON)，留空则不使用转换器"
+            height="120px"
+            @valid-change="handleTransformerValidChange"
+            @error-change="handleTransformerErrorChange"
           />
         </div>
       </div>
@@ -1010,11 +1043,12 @@ const handleGlobalProxyChange = async (value) => {
         <!-- 转换器配置 -->
         <div class="flex-shrink-0">
           <label class="block text-sm font-medium text-gray-700 mb-2">转换器配置 (JSON)</label>
-          <el-input
+          <JsonEditor
             v-model="newTransformerText"
-            type="textarea"
-            :rows="3"
             placeholder="请输入转换器配置 (JSON)，留空则不使用转换器"
+            height="120px"
+            @valid-change="handleNewTransformerValidChange"
+            @error-change="handleNewTransformerErrorChange"
           />
         </div>
       </div>

@@ -17,17 +17,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+        run_install: false
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '22'
         cache: 'pnpm'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
-        run_install: false
 
     - name: Install dependencies
       run: pnpm install
@@ -35,21 +35,16 @@ jobs:
     - name: Build
       run: pnpm build
 
-    - name: Build for Windows
-      if: matrix.os == 'windows-latest'
-      run: pnpm build:win
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build for macOS
-      if: matrix.os == 'macos-latest'
-      run: pnpm build:mac
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build for Linux
-      if: matrix.os == 'ubuntu-latest'
-      run: pnpm build:linux
+    - name: Build application
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          pnpm build:win
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          pnpm build:mac
+        else
+          pnpm build:linux
+        fi
+      shell: bash
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

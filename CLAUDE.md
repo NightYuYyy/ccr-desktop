@@ -77,7 +77,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 配置管理
 
-- **CCR配置**: `~/.config/claude-code-router/settings.json`
+- **CCR配置**: `~/.claude-code-router/config.json`
 - **Provider管理**: 支持多个AI服务提供商配置
 - **模型路由**: 支持默认、背景、思考、长文本等场景的模型选择
 
@@ -114,7 +114,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 代理模式
 
 - 通过 Claude Code Router (CCR) 服务转发请求
-- 配置文件：`~/.config/claude-code-router/settings.json`
+- 配置文件：`~/.claude-code-router/config.json`
 - 支持多个AI服务提供商的统一管理
 
 ### 直连模式
@@ -140,7 +140,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 本地备份
 
 - 配置文件本地定时备份
-- 备份文件存储在 `~/.config/claude-code-router/backups/`
+- 备份文件存储在 `~/.ccr-desktop/backups/`
 - 支持备份文件恢复
 
 ## 开发建议

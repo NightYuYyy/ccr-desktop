@@ -3,7 +3,11 @@ import {
   getClaudeCodeRouterConfigDir,
   getClaudeSettingsPath,
   getClaudeConfigDir,
-  getDirectConfigPath
+  getDirectConfigPath,
+  getCCRDesktopConfigPath,
+  getCCRDesktopConfigDir,
+  getCCRDesktopWebdavConfigPath,
+  getCCRDesktopBackupsDir
 } from '../utils/pathUtils.js'
 
 /**
@@ -76,6 +80,87 @@ export class ConfigManager {
     const path = getDirectConfigPath()
     this._pathCache.set(cacheKey, path)
     return path
+  }
+
+  /**
+   * 获取 CCR Desktop 配置路径信息
+   * @returns {{configPath: string, configDir: string, webdavConfigPath: string, backupsDir: string}}
+   */
+  static getCCRDesktopPaths() {
+    const cacheKey = 'ccr-desktop-paths'
+    if (this._pathCache.has(cacheKey)) {
+      return this._pathCache.get(cacheKey)
+    }
+
+    const paths = {
+      configPath: getCCRDesktopConfigPath(),
+      configDir: getCCRDesktopConfigDir(),
+      webdavConfigPath: getCCRDesktopWebdavConfigPath(),
+      backupsDir: getCCRDesktopBackupsDir()
+    }
+
+    this._pathCache.set(cacheKey, paths)
+    return paths
+  }
+
+  /**
+   * 获取 CCR Desktop 配置路径
+   * @returns {string}
+   */
+  static getCCRDesktopConfigPath() {
+    const cacheKey = 'ccr-desktop-config-path'
+    if (this._pathCache.has(cacheKey)) {
+      return this._pathCache.get(cacheKey)
+    }
+
+    const path = getCCRDesktopConfigPath()
+    this._pathCache.set(cacheKey, path)
+    return path
+  }
+
+  /**
+   * 获取 CCR Desktop 配置目录
+   * @returns {string}
+   */
+  static getCCRDesktopConfigDir() {
+    const cacheKey = 'ccr-desktop-config-dir'
+    if (this._pathCache.has(cacheKey)) {
+      return this._pathCache.get(cacheKey)
+    }
+
+    const dir = getCCRDesktopConfigDir()
+    this._pathCache.set(cacheKey, dir)
+    return dir
+  }
+
+  /**
+   * 获取 CCR Desktop WebDAV 配置路径
+   * @returns {string}
+   */
+  static getCCRDesktopWebdavConfigPath() {
+    const cacheKey = 'ccr-desktop-webdav-config-path'
+    if (this._pathCache.has(cacheKey)) {
+      return this._pathCache.get(cacheKey)
+    }
+
+    const path = getCCRDesktopWebdavConfigPath()
+    this._pathCache.set(cacheKey, path)
+    return path
+  }
+
+  /**
+   * 获取 CCR Desktop 备份目录路径
+   * @returns {string}
+   */
+  static getCCRDesktopBackupsDir() {
+    const cacheKey = 'ccr-desktop-backups-dir'
+    if (this._pathCache.has(cacheKey)) {
+      return this._pathCache.get(cacheKey)
+    }
+
+    const dir = getCCRDesktopBackupsDir()
+    this._pathCache.set(cacheKey, dir)
+    return dir
   }
 
   /**

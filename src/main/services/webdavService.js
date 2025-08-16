@@ -1,5 +1,5 @@
 import { createClient } from 'webdav'
-import { getCCRDesktopConfigPath } from '../utils/pathUtils.js'
+import { getCCRDesktopConfigPath, getCCRDesktopWebdavConfigPath } from '../utils/pathUtils.js'
 import { readJsonFile, writeJsonFile } from '../utils/fileUtils.js'
 import { ConfigManager } from './configManager.js'
 import fs from 'fs/promises'
@@ -20,8 +20,62 @@ let webdavConfig = {
  * @returns {string} WebDAV配置文件路径
  */
 function getWebdavConfigPath() {
+  return getCCRDesktopWebdavConfigPath()
+}
+
+/**
+ * 获取旧的WebDAV配置文件路径（用于迁移）
+ * @returns {string} 旧的WebDAV配置文件路径
+ */
+function getOldWebdavConfigPath() {
   const configDir = ConfigManager.getCCRPaths().configDir
   return path.join(configDir, 'webdav-config.json')
+}
+
+/**
+ * 迁移WebDAV配置从旧位置到新位置
+ * @returns {Promise<boolean>} 是否迁移成功
+ */
+async function migrateWebdavConfig() {
+  try {
+    const oldPath = getOldWebdavConfigPath()
+    const newPath = getWebdavConfigPath()
+
+    // 检查旧配置文件是否存在
+    const oldConfigExists = await fs
+      .access(oldPath)
+      .then(() => true)
+      .catch(() => false)
+
+    if (oldConfigExists) {
+      console.log('[WebDAV] 发现旧配置文件，开始迁移:', oldPath)
+
+      // 读取旧配置
+      const result = await readJsonFile(oldPath)
+      if (result.success && result.data) {
+        // 写入新位置
+        const writeResult = await writeJsonFile(newPath, result.data)
+        if (writeResult.success) {
+          console.log('[WebDAV] 配置迁移成功:', newPath)
+
+          // 删除旧配置文件
+          try {
+            await fs.unlink(oldPath)
+            console.log('[WebDAV] 旧配置文件已删除:', oldPath)
+          } catch (error) {
+            console.warn('[WebDAV] 删除旧配置文件失败:', error.message)
+          }
+
+          return true
+        }
+      }
+    }
+
+    return false
+  } catch (error) {
+    console.error('[WebDAV] 配置迁移失败:', error.message)
+    return false
+  }
 }
 
 /**
@@ -30,6 +84,9 @@ function getWebdavConfigPath() {
  */
 async function loadWebdavConfigFromFile() {
   try {
+    // 首先尝试迁移旧配置
+    await migrateWebdavConfig()
+
     const configPath = getWebdavConfigPath()
     const result = await readJsonFile(configPath)
 

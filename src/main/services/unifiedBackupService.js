@@ -5,6 +5,7 @@ import {
   updateConfigSnapshot
 } from './ccrDesktopConfigService.js'
 import { createConfigSnapshot } from './configSnapshotService.js'
+import { getCCRDesktopBackupsDir } from '../utils/pathUtils.js'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -69,9 +70,11 @@ export async function backupUnifiedConfig(options = {}) {
  */
 async function backupLocally(configData) {
   try {
+    // 首先迁移旧的备份文件
+    await migrateOldBackups()
+
     // 获取备份目录路径
-    const configDir = path.join(process.env.HOME || process.env.USERPROFILE, '.ccr-desktop')
-    const backupDir = path.join(configDir, 'backups')
+    const backupDir = getCCRDesktopBackupsDir()
 
     // 确保备份目录存在
     await fs.mkdir(backupDir, { recursive: true })
@@ -100,6 +103,74 @@ async function backupLocally(configData) {
       success: false,
       error: `本地备份失败: ${error.message}`
     }
+  }
+}
+
+/**
+ * 迁移旧的备份文件到新位置
+ * @returns {Promise<void>}
+ */
+async function migrateOldBackups() {
+  try {
+    const oldBackupDir = path.join(
+      process.env.HOME || process.env.USERPROFILE,
+      '.config',
+      'claude-code-router',
+      'backups'
+    )
+    const newBackupDir = getCCRDesktopBackupsDir()
+
+    // 检查旧备份目录是否存在
+    const oldDirExists = await fs
+      .access(oldBackupDir)
+      .then(() => true)
+      .catch(() => false)
+
+    if (oldDirExists) {
+      console.log('[BackupService] 发现旧备份目录，开始迁移:', oldBackupDir)
+
+      // 读取旧备份目录中的文件
+      const files = await fs.readdir(oldBackupDir)
+      const backupFiles = files.filter(
+        (file) => file.startsWith('ccr-desktop-backup-') && file.endsWith('.json')
+      )
+
+      if (backupFiles.length > 0) {
+        // 确保新备份目录存在
+        await fs.mkdir(newBackupDir, { recursive: true })
+
+        // 迁移每个备份文件
+        for (const file of backupFiles) {
+          const oldPath = path.join(oldBackupDir, file)
+          const newPath = path.join(newBackupDir, file)
+
+          try {
+            await fs.copyFile(oldPath, newPath)
+            console.log('[BackupService] 备份文件迁移成功:', file)
+
+            // 删除旧文件
+            await fs.unlink(oldPath)
+          } catch (error) {
+            console.warn('[BackupService] 迁移备份文件失败:', file, error.message)
+          }
+        }
+
+        console.log('[BackupService] 备份文件迁移完成')
+
+        // 尝试删除旧备份目录（如果为空）
+        try {
+          const remainingFiles = await fs.readdir(oldBackupDir)
+          if (remainingFiles.length === 0) {
+            await fs.rmdir(oldBackupDir)
+            console.log('[BackupService] 旧备份目录已删除:', oldBackupDir)
+          }
+        } catch (error) {
+          console.warn('[BackupService] 删除旧备份目录失败:', error.message)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[BackupService] 迁移旧备份失败:', error.message)
   }
 }
 

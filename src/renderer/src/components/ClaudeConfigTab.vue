@@ -248,6 +248,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+// 默认配置
+const DEFAULT_CONFIG = {
+  baseUrl: 'https://api.anthropic.com',
+  useApiKey: false,
+  isDefault: false
+}
+
 // 简单的ID生成函数
 const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -268,9 +275,9 @@ const dragOverItem = ref(null)
 const configForm = reactive({
   name: '',
   apiKey: '',
-  baseUrl: 'https://api.anthropic.com',
-  useApiKey: false,
-  isDefault: false
+  baseUrl: DEFAULT_CONFIG.baseUrl,
+  useApiKey: DEFAULT_CONFIG.useApiKey,
+  isDefault: DEFAULT_CONFIG.isDefault
 })
 
 // 验证配置名称唯一性
@@ -388,6 +395,7 @@ const saveDirectConfig = async () => {
 
 // 显示添加配置弹窗
 const showAddConfigDialog = () => {
+  // 确保彻底清空所有状态
   editingConfig.value = null
   dialogTitle.value = '添加配置'
   resetConfigForm()
@@ -396,25 +404,20 @@ const showAddConfigDialog = () => {
 
 // 重置配置表单
 const resetConfigForm = () => {
-  configForm.name = ''
-  configForm.apiKey = ''
-  configForm.baseUrl = 'https://api.anthropic.com'
-  configForm.useApiKey = false
-  configForm.isDefault = false
-
-  if (configFormRef.value) {
-    configFormRef.value.resetFields()
-  }
+  Object.assign(configForm, {
+    name: '',
+    apiKey: '',
+    baseUrl: DEFAULT_CONFIG.baseUrl,
+    useApiKey: DEFAULT_CONFIG.useApiKey,
+    isDefault: DEFAULT_CONFIG.isDefault
+  })
 }
 
 // 处理弹窗关闭
 const handleDialogClosed = () => {
-  // 只有在编辑模式下才清空表单，新增模式保持原样
-  if (editingConfig.value) {
-    resetConfigForm()
-    editingConfig.value = null
-    dialogTitle.value = '添加配置'
-  }
+  resetConfigForm()
+  editingConfig.value = null
+  dialogTitle.value = '添加配置'
 }
 
 // 保存配置
@@ -508,15 +511,23 @@ const handleConfigAction = async (command, config) => {
   }
 }
 
+// 填充表单数据
+const fillConfigForm = (config, overrides = {}) => {
+  Object.assign(configForm, {
+    name: config.name,
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    useApiKey: config.useApiKey || false,
+    isDefault: config.isDefault,
+    ...overrides
+  })
+}
+
 // 编辑配置
 const editConfig = (config) => {
   editingConfig.value = config
   dialogTitle.value = '编辑配置'
-  configForm.name = config.name
-  configForm.apiKey = config.apiKey
-  configForm.baseUrl = config.baseUrl
-  configForm.useApiKey = config.useApiKey || false
-  configForm.isDefault = config.isDefault
+  fillConfigForm(config)
   showConfigDialog.value = true
 }
 
@@ -524,20 +535,23 @@ const editConfig = (config) => {
 const copyConfig = (config) => {
   editingConfig.value = null
   dialogTitle.value = '复制配置'
-  configForm.name = `${config.name} - 副本`
-  configForm.apiKey = config.apiKey
-  configForm.baseUrl = config.baseUrl
-  configForm.useApiKey = config.useApiKey || false
-  configForm.isDefault = false
+  fillConfigForm(config, {
+    name: `${config.name} - 副本`,
+    isDefault: false
+  })
   showConfigDialog.value = true
+}
+
+// 通用错误处理
+const handleError = (error, operation) => {
+  ElMessage.error(`${operation}失败: ${error.message}`)
+  console.error(`${operation}异常:`, error)
 }
 
 // 设置默认配置
 const setDefaultConfig = async (config) => {
   try {
-    // 清除所有默认标记
     directConfigs.value.forEach((c) => (c.isDefault = false))
-    // 设置当前配置为默认
     config.isDefault = true
 
     const success = await saveDirectConfig()
@@ -545,29 +559,24 @@ const setDefaultConfig = async (config) => {
       ElMessage.success(`已将 "${config.name}" 设为默认配置`)
     }
   } catch (error) {
-    ElMessage.error(`设置默认配置失败: ${error.message}`)
-    console.error('设置默认配置异常:', error)
+    handleError(error, '设置默认配置')
   }
 }
 
 // 应用配置到Claude
 const applyConfig = async (config) => {
   try {
-    // 深度克隆以确保配置对象是可序列化的
     const configToApply = JSON.parse(JSON.stringify(config))
     const result = await window.api.applyDirectConfig(configToApply)
 
     if (result.success) {
       ElMessage.success(result.message)
-
-      // 通知父组件重新检测网络模式
       window.dispatchEvent(new CustomEvent('claude-config-saved'))
     } else {
       ElMessage.error(`应用配置失败: ${result.error}`)
     }
   } catch (error) {
-    ElMessage.error(`应用配置异常: ${error.message}`)
-    console.error('应用配置异常:', error)
+    handleError(error, '应用配置')
   }
 }
 
@@ -687,40 +696,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 拖拽样式优化 */
-.draggable-card {
-  transition: all 0.2s ease;
-}
-
-.draggable-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.dragging {
-  opacity: 0.5;
-  cursor: grabbing !important;
-}
-
-.drag-over {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-/* 拖拽手柄样式 */
-.drag-handle {
-  cursor: grab;
-  transition: color 0.2s ease;
-}
-
-.drag-handle:hover {
-  color: #6b7280;
-}
-
-.dragging .drag-handle {
-  cursor: grabbing;
-}
-
 /* 搜索框样式 */
 .search-input:focus {
   outline: none;

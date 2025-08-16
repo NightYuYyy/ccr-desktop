@@ -66,6 +66,22 @@ export function getCCRDesktopConfigPath() {
 }
 
 /**
+ * 获取 CCR Desktop WebDAV 配置文件路径
+ * @returns {string} WebDAV配置文件的绝对路径
+ */
+export function getCCRDesktopWebdavConfigPath() {
+  return join(getCCRDesktopConfigDir(), 'webdav-config.json')
+}
+
+/**
+ * 获取 CCR Desktop 备份目录路径
+ * @returns {string} 备份目录的绝对路径
+ */
+export function getCCRDesktopBackupsDir() {
+  return join(getCCRDesktopConfigDir(), 'backups')
+}
+
+/**
  * 规范化文件路径（处理相对路径和特殊字符）
  * @param {string} filePath - 原始文件路径
  * @returns {string} 规范化后的绝对路径
